@@ -14,28 +14,31 @@ export default function Home() {
   const [useSupabase, setUseSupabase] = useState(false)
 
   useEffect(() => {
-    // Verificar se Supabase está configurado
+    // SEMPRE usar Supabase em produção (Vercel)
+    // Socket.IO apenas para desenvolvimento local
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-    const hasSupabase = supabaseUrl && !supabaseUrl.includes('placeholder')
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+    const isProduction = process.env.NODE_ENV === 'production' || 
+                        (typeof window !== 'undefined' && !window.location.hostname.includes('localhost'))
     
-    if (hasSupabase) {
-      // Usar Supabase Realtime (funciona de qualquer lugar)
+    const hasSupabase = supabaseUrl && 
+                        supabaseKey && 
+                        !supabaseUrl.includes('placeholder') && 
+                        !supabaseKey.includes('placeholder') &&
+                        supabaseUrl.includes('.supabase.co')
+    
+    if (hasSupabase || isProduction) {
+      // Usar Supabase Realtime (funciona em produção/Vercel)
       setUseSupabase(true)
       setConnected(true)
-      console.log('Usando Supabase Realtime')
+      console.log('✅ Usando Supabase Realtime')
+      
+      if (!hasSupabase && isProduction) {
+        console.error('❌ Supabase não configurado! Configure as variáveis de ambiente na Vercel.')
+      }
     } else {
       // Fallback para Socket.IO (apenas desenvolvimento local)
       const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001'
-      
-      // Verificar se está tentando conectar a localhost de outro dispositivo
-      if (typeof window !== 'undefined') {
-        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        if (!isLocalhost && socketUrl.includes('localhost')) {
-          console.warn('⚠️ Tentando conectar a localhost de fora. Configure Supabase ou use o IP da máquina.')
-          setConnected(false)
-          return
-        }
-      }
       
       const newSocket = io(socketUrl, {
         transports: ['websocket', 'polling'],
@@ -47,7 +50,7 @@ export default function Home() {
 
       newSocket.on('connect', () => {
         setConnected(true)
-        console.log('Conectado ao servidor Socket.IO')
+        console.log('Conectado ao servidor Socket.IO (desenvolvimento local)')
       })
 
       newSocket.on('disconnect', () => {
@@ -123,15 +126,10 @@ export default function Home() {
   // Se usar Supabase, não precisa esperar socket
   if (!useSupabase && (!socket || !connected)) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="text-center">
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
-          <p className="text-slate-400">Conectando ao servidor...</p>
-          {!useSupabase && (
-            <p className="text-slate-500 text-sm mt-2">
-              Configure Supabase para funcionar fora do localhost
-            </p>
-          )}
+          <p className="text-slate-400 mb-2">Conectando ao servidor...</p>
         </div>
       </div>
     )
