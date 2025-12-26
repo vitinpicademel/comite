@@ -12,6 +12,8 @@ import {
   Building2,
   CheckCircle2
 } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import { obterEstadoAtual, obterHistorico, cadastrarImovel as cadastrar, definirImovelAtivo, iniciarAvaliacao as iniciar, finalizarAvaliacao as finalizar, subscribeEstadoAtual, subscribeAvaliacoes, obterAvaliacoes } from '@/lib/database'
 import AnimatedCounter from './AnimatedCounter'
 import ResultadosRevelacao from './ResultadosRevelacao'
 import HistoricoLista from './HistoricoLista'
@@ -45,7 +47,7 @@ const TIPOS_IMOVEL = [
   'Galpão'
 ]
 
-export default function DashboardCEO({ socket, onBack }: { socket: Socket; onBack: () => void }) {
+export default function DashboardCEO({ socket, onBack }: { socket: Socket | null; onBack: () => void }) {
   const [imovelNome, setImovelNome] = useState('')
   const [imovelTipo, setImovelTipo] = useState('')
   const [imovelAtivo, setImovelAtivo] = useState<Imovel | null>(null)
@@ -57,85 +59,188 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket; onBac
   const [mediaFinal, setMediaFinal] = useState(0)
 
   useEffect(() => {
-    socket.on('imovelCadastrado', (imovel: Imovel) => {
-      setImovelAtivo(imovel)
-      setAvaliacaoAtiva(false)
-      setAvaliacoes([])
-      setMostrarResultados(false)
-    })
-
-    socket.on('avaliacaoIniciada', (imovel: Imovel) => {
-      setAvaliacaoAtiva(true)
-      setImovelAtivo(imovel)
-      setAvaliacoes([])
-      setMostrarResultados(false)
-    })
-
-    socket.on('avaliacaoRecebida', (avaliacao: Avaliacao) => {
-      setAvaliacoes(prev => {
-        const index = prev.findIndex(av => av.corretor === avaliacao.corretor)
-        if (index >= 0) {
-          const updated = [...prev]
-          updated[index] = avaliacao
-          return updated
-        }
-        return [...prev, avaliacao]
+    if (socket) {
+      // Usar Socket.IO se disponível
+      socket.on('imovelCadastrado', (imovel: Imovel) => {
+        setImovelAtivo(imovel)
+        setAvaliacaoAtiva(false)
+        setAvaliacoes([])
+        setMostrarResultados(false)
       })
-    })
 
-    socket.on('avaliacaoFinalizada', (resultado: { imovel: Imovel; avaliacoes: Avaliacao[]; media: number }) => {
-      setAvaliacaoAtiva(false)
-      setMediaFinal(resultado.media)
-      setMostrarResultados(true)
-      
-      const novoHistorico: HistoricoItem = {
-        nome: resultado.imovel.nome,
-        tipo: resultado.imovel.tipo,
-        media: resultado.media,
-        avaliacoes: resultado.avaliacoes,
-        data: new Date()
+      socket.on('avaliacaoIniciada', (imovel: Imovel) => {
+        setAvaliacaoAtiva(true)
+        setImovelAtivo(imovel)
+        setAvaliacoes([])
+        setMostrarResultados(false)
+      })
+
+      socket.on('avaliacaoRecebida', (avaliacao: Avaliacao) => {
+        setAvaliacoes(prev => {
+          const index = prev.findIndex(av => av.corretor === avaliacao.corretor)
+          if (index >= 0) {
+            const updated = [...prev]
+            updated[index] = avaliacao
+            return updated
+          }
+          return [...prev, avaliacao]
+        })
+      })
+
+      socket.on('avaliacaoFinalizada', (resultado: { imovel: Imovel; avaliacoes: Avaliacao[]; media: number }) => {
+        setAvaliacaoAtiva(false)
+        setMediaFinal(resultado.media)
+        setMostrarResultados(true)
+        
+        const novoHistorico: HistoricoItem = {
+          nome: resultado.imovel.nome,
+          tipo: resultado.imovel.tipo,
+          media: resultado.media,
+          avaliacoes: resultado.avaliacoes,
+          data: new Date()
+        }
+        setHistorico(prev => [novoHistorico, ...prev])
+        setContador(prev => prev + 1)
+      })
+
+      socket.on('estadoAtual', (estado: any) => {
+        if (estado.imovelAtivo) setImovelAtivo(estado.imovelAtivo)
+        if (estado.avaliacaoAtiva !== undefined) setAvaliacaoAtiva(estado.avaliacaoAtiva)
+        if (estado.avaliacoes) setAvaliacoes(estado.avaliacoes)
+        if (estado.contador !== undefined) setContador(estado.contador)
+        if (estado.historico) setHistorico(estado.historico)
+      })
+
+      socket.emit('solicitarEstado')
+
+      return () => {
+        socket.off('imovelCadastrado')
+        socket.off('avaliacaoIniciada')
+        socket.off('avaliacaoRecebida')
+        socket.off('avaliacaoFinalizada')
+        socket.off('estadoAtual')
       }
-      setHistorico(prev => [novoHistorico, ...prev])
-      setContador(prev => prev + 1)
-    })
+    } else {
+      // Usar Supabase Realtime
+      obterEstadoAtual().then(estado => {
+        if (estado?.imovel_ativo_id) {
+          supabase.from('imoveis').select('*').eq('id', estado.imovel_ativo_id).single().then(({ data }) => {
+            if (data) setImovelAtivo({ nome: data.nome, tipo: data.tipo })
+          })
+        }
+        setAvaliacaoAtiva(estado?.avaliacao_ativa || false)
+        setContador(estado?.contador_dia || 0)
+      })
+      
+      obterHistorico().then(historico => {
+        setHistorico(historico.map(h => ({
+          nome: h.nome_imovel,
+          tipo: h.tipo_imovel,
+          media: Number(h.media_final),
+          avaliacoes: [],
+          data: new Date(h.created_at)
+        })))
+      })
 
-    socket.on('estadoAtual', (estado: any) => {
-      if (estado.imovelAtivo) setImovelAtivo(estado.imovelAtivo)
-      if (estado.avaliacaoAtiva !== undefined) setAvaliacaoAtiva(estado.avaliacaoAtiva)
-      if (estado.avaliacoes) setAvaliacoes(estado.avaliacoes)
-      if (estado.contador !== undefined) setContador(estado.contador)
-      if (estado.historico) setHistorico(estado.historico)
-    })
+      // Subscribe Realtime para estado
+      const channelEstado = subscribeEstadoAtual((estado) => {
+        if (estado?.imovel_ativo_id) {
+          supabase.from('imoveis').select('*').eq('id', estado.imovel_ativo_id).single().then(({ data }) => {
+            if (data) setImovelAtivo({ nome: data.nome, tipo: data.tipo })
+          })
+        } else {
+          setImovelAtivo(null)
+        }
+        setAvaliacaoAtiva(estado?.avaliacao_ativa || false)
+        setContador(estado?.contador_dia || 0)
+      })
 
-    socket.emit('solicitarEstado')
+      // Subscribe Realtime para avaliações quando houver imóvel ativo
+      let channelAvaliacoes: any = null
+      const setupAvaliacoes = async () => {
+        const estado = await obterEstadoAtual()
+        if (estado?.imovel_ativo_id && estado.avaliacao_ativa) {
+          // Carregar avaliações existentes
+          const avs = await obterAvaliacoes(estado.imovel_ativo_id)
+          setAvaliacoes(avs.map(av => ({
+            corretor: av.corretor,
+            valor: Number(av.valor),
+            timestamp: new Date(av.created_at)
+          })))
 
-    return () => {
-      socket.off('imovelCadastrado')
-      socket.off('avaliacaoIniciada')
-      socket.off('avaliacaoRecebida')
-      socket.off('avaliacaoFinalizada')
-      socket.off('estadoAtual')
+          // Subscribe para novas avaliações
+          channelAvaliacoes = subscribeAvaliacoes(estado.imovel_ativo_id, (avaliacao) => {
+            setAvaliacoes(prev => {
+              const index = prev.findIndex(av => av.corretor === avaliacao.corretor)
+              if (index >= 0) {
+                const updated = [...prev]
+                updated[index] = {
+                  corretor: avaliacao.corretor,
+                  valor: Number(avaliacao.valor),
+                  timestamp: new Date(avaliacao.created_at)
+                }
+                return updated
+              }
+              return [...prev, {
+                corretor: avaliacao.corretor,
+                valor: Number(avaliacao.valor),
+                timestamp: new Date(avaliacao.created_at)
+              }]
+            })
+          })
+        }
+      }
+      setupAvaliacoes()
+
+      return () => {
+        channelEstado.unsubscribe()
+        if (channelAvaliacoes) channelAvaliacoes.unsubscribe()
+      }
     }
   }, [socket])
 
-  const cadastrarImovel = () => {
+  const cadastrarImovel = async () => {
     if (!imovelNome.trim() || !imovelTipo) {
       alert('Preencha todos os campos!')
       return
     }
-    socket.emit('cadastrarImovel', { nome: imovelNome.trim(), tipo: imovelTipo })
+    
+    if (socket) {
+      socket.emit('cadastrarImovel', { nome: imovelNome.trim(), tipo: imovelTipo })
+    } else {
+      const imovel = await cadastrar(imovelNome.trim(), imovelTipo)
+      await definirImovelAtivo(imovel.id)
+      setImovelAtivo({ nome: imovel.nome, tipo: imovel.tipo })
+    }
+    
     setImovelNome('')
     setImovelTipo('')
   }
 
-  const iniciarAvaliacao = () => {
+  const iniciarAvaliacao = async () => {
     if (!imovelAtivo) return
-    socket.emit('iniciarAvaliacao')
+    
+    if (socket) {
+      socket.emit('iniciarAvaliacao')
+    } else {
+      await iniciar()
+      setAvaliacaoAtiva(true)
+    }
   }
 
-  const finalizarAvaliacao = () => {
+  const finalizarAvaliacao = async () => {
     if (!imovelAtivo) return
-    socket.emit('finalizarAvaliacao')
+    
+    if (socket) {
+      socket.emit('finalizarAvaliacao')
+    } else {
+      const resultado = await finalizar()
+      setAvaliacaoAtiva(false)
+      setMediaFinal(resultado.media)
+      setMostrarResultados(true)
+      setContador(prev => prev + 1)
+      setImovelAtivo(null)
+    }
   }
 
   return (

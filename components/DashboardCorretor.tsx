@@ -4,13 +4,14 @@ import { useState, useEffect } from 'react'
 import { Socket } from 'socket.io-client'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Home, Send, CheckCircle2, Clock } from 'lucide-react'
+import { obterEstadoAtual, obterImovelAtivo, enviarAvaliacao as enviar, subscribeEstadoAtual } from '@/lib/database'
 
 interface Imovel {
   nome: string
   tipo: string
 }
 
-export default function DashboardCorretor({ socket, onBack }: { socket: Socket; onBack: () => void }) {
+export default function DashboardCorretor({ socket, onBack }: { socket: Socket | null; onBack: () => void }) {
   const [nomeCorretor, setNomeCorretor] = useState('')
   const [corretorAtivo, setCorretorAtivo] = useState(false)
   const [imovelAtivo, setImovelAtivo] = useState<Imovel | null>(null)
@@ -20,33 +21,69 @@ export default function DashboardCorretor({ socket, onBack }: { socket: Socket; 
   const [mensagemStatus, setMensagemStatus] = useState('')
 
   useEffect(() => {
-    socket.on('avaliacaoIniciada', (imovel: Imovel) => {
-      setImovelAtivo(imovel)
-      setAvaliacaoAtiva(true)
-      setVotoEnviado(false)
-      setValor('')
-      setMensagemStatus('')
-    })
+    if (socket) {
+      // Usar Socket.IO se disponível
+      socket.on('avaliacaoIniciada', (imovel: Imovel) => {
+        setImovelAtivo(imovel)
+        setAvaliacaoAtiva(true)
+        setVotoEnviado(false)
+        setValor('')
+        setMensagemStatus('')
+      })
 
-    socket.on('avaliacaoFinalizada', () => {
-      setAvaliacaoAtiva(false)
-      setImovelAtivo(null)
-      setVotoEnviado(false)
-      setValor('')
-      setMensagemStatus('Avaliação encerrada. Aguarde o próximo imóvel.')
-    })
+      socket.on('avaliacaoFinalizada', () => {
+        setAvaliacaoAtiva(false)
+        setImovelAtivo(null)
+        setVotoEnviado(false)
+        setValor('')
+        setMensagemStatus('Avaliação encerrada. Aguarde o próximo imóvel.')
+      })
 
-    socket.on('estadoAtual', (estado: any) => {
-      if (estado.imovelAtivo) setImovelAtivo(estado.imovelAtivo)
-      if (estado.avaliacaoAtiva !== undefined) setAvaliacaoAtiva(estado.avaliacaoAtiva)
-    })
+      socket.on('estadoAtual', (estado: any) => {
+        if (estado.imovelAtivo) setImovelAtivo(estado.imovelAtivo)
+        if (estado.avaliacaoAtiva !== undefined) setAvaliacaoAtiva(estado.avaliacaoAtiva)
+      })
 
-    socket.emit('solicitarEstado')
+      socket.emit('solicitarEstado')
 
-    return () => {
-      socket.off('avaliacaoIniciada')
-      socket.off('avaliacaoFinalizada')
-      socket.off('estadoAtual')
+      return () => {
+        socket.off('avaliacaoIniciada')
+        socket.off('avaliacaoFinalizada')
+        socket.off('estadoAtual')
+      }
+    } else {
+      // Usar Supabase Realtime
+      obterEstadoAtual().then(estado => {
+        if (estado?.imovel_ativo_id && estado.avaliacao_ativa) {
+          obterImovelAtivo().then(imovel => {
+            if (imovel) setImovelAtivo({ nome: imovel.nome, tipo: imovel.tipo })
+          })
+        }
+        setAvaliacaoAtiva(estado?.avaliacao_ativa || false)
+      })
+
+      // Subscribe Realtime
+      const channel = subscribeEstadoAtual(async (estado) => {
+        if (estado?.imovel_ativo_id && estado.avaliacao_ativa) {
+          const imovel = await obterImovelAtivo()
+          if (imovel) {
+            setImovelAtivo({ nome: imovel.nome, tipo: imovel.tipo })
+            setAvaliacaoAtiva(true)
+            setVotoEnviado(false)
+            setValor('')
+          }
+        } else {
+          setAvaliacaoAtiva(false)
+          setImovelAtivo(null)
+          if (!estado?.avaliacao_ativa) {
+            setMensagemStatus('Avaliação encerrada. Aguarde o próximo imóvel.')
+          }
+        }
+      })
+
+      return () => {
+        channel.unsubscribe()
+      }
     }
   }, [socket])
 
@@ -79,7 +116,7 @@ export default function DashboardCorretor({ socket, onBack }: { socket: Socket; 
     setValor(valorFormatado)
   }
 
-  const enviarAvaliacao = () => {
+  const enviarAvaliacao = async () => {
     if (!valor || !avaliacaoAtiva) {
       setMensagemStatus('Avaliação não está ativa no momento!')
       return
@@ -92,10 +129,17 @@ export default function DashboardCorretor({ socket, onBack }: { socket: Socket; 
       return
     }
 
-    socket.emit('enviarAvaliacao', {
-      corretor: nomeCorretor.trim(),
-      valor: valorNumerico
-    })
+    if (socket) {
+      socket.emit('enviarAvaliacao', {
+        corretor: nomeCorretor.trim(),
+        valor: valorNumerico
+      })
+    } else {
+      const estado = await obterEstadoAtual()
+      if (estado?.imovel_ativo_id) {
+        await enviar(estado.imovel_ativo_id, nomeCorretor.trim(), valorNumerico)
+      }
+    }
 
     setVotoEnviado(true)
     setMensagemStatus('Voto registrado! Aguarde o resultado no telão.')

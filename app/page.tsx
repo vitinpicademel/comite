@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { io, Socket } from 'socket.io-client'
+import { supabase } from '@/lib/supabase'
 import DashboardCEO from '@/components/DashboardCEO'
 import DashboardCorretor from '@/components/DashboardCorretor'
 import { Building2 } from 'lucide-react'
@@ -10,30 +11,60 @@ export default function Home() {
   const [socket, setSocket] = useState<Socket | null>(null)
   const [view, setView] = useState<'select' | 'ceo' | 'corretor'>('select')
   const [connected, setConnected] = useState(false)
+  const [useSupabase, setUseSupabase] = useState(false)
 
   useEffect(() => {
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001'
-    const newSocket = io(socketUrl, {
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionAttempts: 5,
-    })
-
-    newSocket.on('connect', () => {
+    // Verificar se Supabase está configurado
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+    const hasSupabase = supabaseUrl && !supabaseUrl.includes('placeholder')
+    
+    if (hasSupabase) {
+      // Usar Supabase Realtime (funciona de qualquer lugar)
+      setUseSupabase(true)
       setConnected(true)
-      console.log('Conectado ao servidor')
-    })
+      console.log('Usando Supabase Realtime')
+    } else {
+      // Fallback para Socket.IO (apenas desenvolvimento local)
+      const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001'
+      
+      // Verificar se está tentando conectar a localhost de outro dispositivo
+      if (typeof window !== 'undefined') {
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        if (!isLocalhost && socketUrl.includes('localhost')) {
+          console.warn('⚠️ Tentando conectar a localhost de fora. Configure Supabase ou use o IP da máquina.')
+          setConnected(false)
+          return
+        }
+      }
+      
+      const newSocket = io(socketUrl, {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionAttempts: 5,
+        timeout: 5000,
+      })
 
-    newSocket.on('disconnect', () => {
-      setConnected(false)
-      console.log('Desconectado do servidor')
-    })
+      newSocket.on('connect', () => {
+        setConnected(true)
+        console.log('Conectado ao servidor Socket.IO')
+      })
 
-    setSocket(newSocket)
+      newSocket.on('disconnect', () => {
+        setConnected(false)
+        console.log('Desconectado do servidor Socket.IO')
+      })
 
-    return () => {
-      newSocket.close()
+      newSocket.on('connect_error', (error) => {
+        console.error('Erro de conexão Socket.IO:', error.message)
+        setConnected(false)
+      })
+
+      setSocket(newSocket)
+
+      return () => {
+        newSocket.close()
+      }
     }
   }, [])
 
@@ -71,10 +102,10 @@ export default function Home() {
           </div>
 
           <div className="pt-4">
-            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${connected ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
-              <div className={`w-2 h-2 rounded-full ${connected ? 'bg-emerald-500' : 'bg-red-500'} animate-pulse`} />
+            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${(connected || useSupabase) ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+              <div className={`w-2 h-2 rounded-full ${(connected || useSupabase) ? 'bg-emerald-500' : 'bg-red-500'} animate-pulse`} />
               <span className="text-sm font-medium">
-                {connected ? 'Conectado' : 'Conectando...'}
+                {(connected || useSupabase) ? (useSupabase ? 'Conectado (Supabase)' : 'Conectado') : 'Conectando...'}
               </span>
             </div>
           </div>
@@ -89,12 +120,18 @@ export default function Home() {
     )
   }
 
-  if (!socket || !connected) {
+  // Se usar Supabase, não precisa esperar socket
+  if (!useSupabase && (!socket || !connected)) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
           <p className="text-slate-400">Conectando ao servidor...</p>
+          {!useSupabase && (
+            <p className="text-slate-500 text-sm mt-2">
+              Configure Supabase para funcionar fora do localhost
+            </p>
+          )}
         </div>
       </div>
     )
@@ -102,8 +139,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-slate-950">
-      {view === 'ceo' && <DashboardCEO socket={socket} onBack={() => setView('select')} />}
-      {view === 'corretor' && <DashboardCorretor socket={socket} onBack={() => setView('select')} />}
+      {view === 'ceo' && <DashboardCEO socket={useSupabase ? null : socket} onBack={() => setView('select')} />}
+      {view === 'corretor' && <DashboardCorretor socket={useSupabase ? null : socket} onBack={() => setView('select')} />}
     </div>
   )
 }
