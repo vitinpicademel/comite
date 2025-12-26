@@ -12,10 +12,13 @@ import {
   Building2,
   CheckCircle2,
   Eye,
-  EyeOff
+  EyeOff,
+  Edit2,
+  Save,
+  X
 } from 'lucide-react'
 import { supabase, type Imovel as ImovelType } from '@/lib/supabase'
-import { obterEstadoAtual, obterHistorico, cadastrarImovel as cadastrar, definirImovelAtivo, iniciarAvaliacao as iniciar, finalizarAvaliacao as finalizar, subscribeEstadoAtual, subscribeAvaliacoes, obterAvaliacoes, obterImoveisPendentes } from '@/lib/database'
+import { obterEstadoAtual, obterHistorico, cadastrarImovel as cadastrar, definirImovelAtivo, iniciarAvaliacao as iniciar, finalizarAvaliacao as finalizar, subscribeEstadoAtual, subscribeAvaliacoes, obterAvaliacoes, obterImoveisPendentes, atualizarImovel } from '@/lib/database'
 import AnimatedCounter from './AnimatedCounter'
 import ResultadosRevelacao from './ResultadosRevelacao'
 import HistoricoLista from './HistoricoLista'
@@ -61,6 +64,9 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
   const [modoDatashow, setModoDatashow] = useState(false) // false = mostrar nomes, true = ocultar
   const [useSupabase, setUseSupabase] = useState(false)
   const [imoveisPendentes, setImoveisPendentes] = useState<ImovelType[]>([])
+  const [editandoImovel, setEditandoImovel] = useState(false)
+  const [nomeEditando, setNomeEditando] = useState('')
+  const [tipoEditando, setTipoEditando] = useState('')
 
   useEffect(() => {
     if (socket) {
@@ -299,8 +305,48 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
     }
   }
 
+  const iniciarEdicao = () => {
+    if (!imovelAtivo || avaliacaoAtiva) return // Não pode editar se já iniciou votação
+    setEditandoImovel(true)
+    setNomeEditando(imovelAtivo.nome)
+    setTipoEditando(imovelAtivo.tipo)
+  }
+
+  const cancelarEdicao = () => {
+    setEditandoImovel(false)
+    setNomeEditando('')
+    setTipoEditando('')
+  }
+
+  const salvarEdicao = async () => {
+    if (!imovelAtivo || !nomeEditando.trim() || !tipoEditando) {
+      alert('Preencha todos os campos!')
+      return
+    }
+
+    try {
+      const imovelAtualizado = await atualizarImovel(imovelAtivo.id, nomeEditando.trim(), tipoEditando)
+      setImovelAtivo(imovelAtualizado)
+      setEditandoImovel(false)
+      
+      // Recarregar lista de pendentes para refletir mudanças
+      const pendentes = await obterImoveisPendentes()
+      setImoveisPendentes(pendentes)
+      
+      alert('Imóvel atualizado com sucesso!')
+    } catch (error: any) {
+      console.error('Erro ao atualizar imóvel:', error)
+      alert(`Erro ao atualizar: ${error.message || 'Erro desconhecido'}`)
+    }
+  }
+
   const iniciarAvaliacaoDeImovel = async (imovelId: string) => {
     try {
+      // Se estiver editando, cancelar edição
+      if (editandoImovel) {
+        cancelarEdicao()
+      }
+
       // Definir imóvel como ativo e iniciar avaliação
       await definirImovelAtivo(imovelId)
       
@@ -504,37 +550,100 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
                   exit={{ opacity: 0, scale: 0.95 }}
                   className="glass rounded-2xl p-6 border border-cyan-500/30"
                 >
-                  <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                    <Home className="w-5 h-5 text-cyan-500" />
-                    Imóvel em Avaliação
-                  </h2>
-                  <div className="bg-slate-900/50 rounded-xl p-4 mb-4">
-                    <p className="text-slate-300 mb-1">
-                      <span className="text-slate-500">Nome:</span> {imovelAtivo.nome}
-                    </p>
-                    <p className="text-slate-300">
-                      <span className="text-slate-500">Tipo:</span> {imovelAtivo.tipo}
-                    </p>
-                  </div>
-                  <div className="flex gap-3">
-                    {!avaliacaoAtiva ? (
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-semibold flex items-center gap-2">
+                      <Home className="w-5 h-5 text-cyan-500" />
+                      Imóvel em Avaliação
+                    </h2>
+                    {!avaliacaoAtiva && !editandoImovel && (
                       <button
-                        onClick={iniciarAvaliacao}
-                        className="flex-1 px-6 py-3 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-cyan-500/50 hover:shadow-cyan-500/70 hover:scale-[1.02] flex items-center justify-center gap-2"
+                        onClick={iniciarEdicao}
+                        className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-cyan-400 hover:text-cyan-300"
+                        title="Editar imóvel"
                       >
-                        <Play className="w-5 h-5" />
-                        Iniciar Rodada
-                      </button>
-                    ) : (
-                      <button
-                        onClick={finalizarAvaliacao}
-                        className="flex-1 px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-red-500/50 hover:shadow-red-500/70 hover:scale-[1.02] flex items-center justify-center gap-2"
-                      >
-                        <Square className="w-5 h-5" />
-                        Encerrar e Salvar
+                        <Edit2 className="w-5 h-5" />
                       </button>
                     )}
                   </div>
+                  
+                  {editandoImovel ? (
+                    <div className="bg-slate-900/50 rounded-xl p-4 mb-4 space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Nome/Identificador
+                        </label>
+                        <input
+                          type="text"
+                          value={nomeEditando}
+                          onChange={(e) => setNomeEditando(e.target.value)}
+                          className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Tipo
+                        </label>
+                        <select
+                          value={tipoEditando}
+                          onChange={(e) => setTipoEditando(e.target.value)}
+                          className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                        >
+                          {TIPOS_IMOVEL.map(tipo => (
+                            <option key={tipo} value={tipo} className="bg-slate-900">
+                              {tipo}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={salvarEdicao}
+                          className="flex-1 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+                        >
+                          <Save className="w-4 h-4" />
+                          Salvar
+                        </button>
+                        <button
+                          onClick={cancelarEdicao}
+                          className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+                        >
+                          <X className="w-4 h-4" />
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-slate-900/50 rounded-xl p-4 mb-4">
+                      <p className="text-slate-300 mb-1">
+                        <span className="text-slate-500">Nome:</span> {imovelAtivo.nome}
+                      </p>
+                      <p className="text-slate-300">
+                        <span className="text-slate-500">Tipo:</span> {imovelAtivo.tipo}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {!editandoImovel && (
+                    <div className="flex gap-3">
+                      {!avaliacaoAtiva ? (
+                        <button
+                          onClick={iniciarAvaliacao}
+                          className="flex-1 px-6 py-3 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-cyan-500/50 hover:shadow-cyan-500/70 hover:scale-[1.02] flex items-center justify-center gap-2"
+                        >
+                          <Play className="w-5 h-5" />
+                          Iniciar Rodada
+                        </button>
+                      ) : (
+                        <button
+                          onClick={finalizarAvaliacao}
+                          className="flex-1 px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-red-500/50 hover:shadow-red-500/70 hover:scale-[1.02] flex items-center justify-center gap-2"
+                        >
+                          <Square className="w-5 h-5" />
+                          Encerrar e Salvar
+                        </button>
+                      )}
+                    </div>
+                  )}
                   {avaliacaoAtiva && (
                     <div className="mt-4 space-y-4">
                       <div className="flex items-center gap-2 text-cyan-400 text-sm">

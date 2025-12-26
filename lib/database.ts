@@ -62,6 +62,38 @@ export async function atualizarStatusImovel(imovelId: string, status: 'pendente'
   return data as Imovel
 }
 
+// Atualizar dados do imóvel (edição)
+export async function atualizarImovel(imovelId: string, nome: string, tipo: string) {
+  // Verificar se o imóvel está pendente (só pode editar se pendente)
+  const { data: imovel } = await supabase
+    .from('imoveis')
+    .select('status')
+    .eq('id', imovelId)
+    .single()
+
+  if (!imovel) {
+    throw new Error('Imóvel não encontrado')
+  }
+
+  if (imovel.status !== 'pendente') {
+    throw new Error('Só é possível editar imóveis com status pendente')
+  }
+
+  const { data, error } = await supabase
+    .from('imoveis')
+    .update({ 
+      nome, 
+      tipo, 
+      updated_at: new Date().toISOString() 
+    })
+    .eq('id', imovelId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Imovel
+}
+
 export async function obterImovelAtivo() {
   const { data: estado } = await supabase
     .from('estado_atual')
