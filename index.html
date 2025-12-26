@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comitê Avaliativo Imobiliário</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Contador do Dia -->
+        <div class="counter-section">
+            <h2 class="counter-title">Imóveis Avaliados Hoje: <span id="counter">0</span></h2>
+        </div>
+
+        <!-- Painel do CEO -->
+        <div class="panel ceo-panel" id="ceoPanel">
+            <h1>Painel do CEO</h1>
+            
+            <div class="form-section">
+                <h2>Cadastro de Imóvel</h2>
+                <div class="form-group">
+                    <label for="imovelNome">Nome/Identificador do Imóvel:</label>
+                    <input type="text" id="imovelNome" placeholder="Ex: Casa na Rua das Flores, 123">
+                </div>
+                <div class="form-group">
+                    <label for="imovelTipo">Tipo:</label>
+                    <select id="imovelTipo">
+                        <option value="">Selecione o tipo</option>
+                        <option value="Casa">Casa</option>
+                        <option value="Apartamento">Apartamento</option>
+                        <option value="Terreno">Terreno</option>
+                        <option value="Chácara">Chácara</option>
+                        <option value="Rancho">Rancho</option>
+                        <option value="Sítio">Sítio</option>
+                        <option value="Galpão">Galpão</option>
+                    </select>
+                </div>
+                <button id="cadastrarImovel" class="btn btn-primary">Cadastrar Imóvel</button>
+            </div>
+
+            <div class="active-property-section" id="activePropertySection" style="display: none;">
+                <h2>Imóvel em Avaliação</h2>
+                <div class="active-property">
+                    <p><strong>Nome:</strong> <span id="activeNome"></span></p>
+                    <p><strong>Tipo:</strong> <span id="activeTipo"></span></p>
+                </div>
+                <button id="iniciarAvaliacao" class="btn btn-success">Iniciar Avaliação</button>
+                <button id="finalizarAvaliacao" class="btn btn-danger" style="display: none;">Finalizar e Salvar</button>
+            </div>
+
+            <div class="results-section" id="resultsSection" style="display: none;">
+                <h2>Resultados da Avaliação</h2>
+                <div id="avaliacoesList"></div>
+                <div class="media-result">
+                    <h3>Média Final: R$ <span id="mediaFinal">0,00</span></h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- Painel do Corretor -->
+        <div class="panel corretor-panel" id="corretorPanel">
+            <h1>Painel do Corretor</h1>
+            
+            <div class="form-section">
+                <div class="form-group">
+                    <label for="corretorNome">Nome do Corretor:</label>
+                    <input type="text" id="corretorNome" placeholder="Digite seu nome">
+                </div>
+                <button id="entrarComoCorretor" class="btn btn-primary">Entrar</button>
+            </div>
+
+            <div class="corretor-active-section" id="corretorActiveSection" style="display: none;">
+                <div class="corretor-info">
+                    <p>Corretor: <strong id="corretorAtivoNome"></strong></p>
+                </div>
+                
+                <div class="property-display" id="propertyDisplay" style="display: none;">
+                    <h2>Imóvel em Avaliação</h2>
+                    <div class="property-info">
+                        <p><strong>Nome:</strong> <span id="displayNome"></span></p>
+                        <p><strong>Tipo:</strong> <span id="displayTipo"></span></p>
+                    </div>
+                </div>
+
+                <div class="avaliacao-section" id="avaliacaoSection" style="display: none;">
+                    <div class="form-group">
+                        <label for="valorAvaliacao">Valor da Avaliação (R$):</label>
+                        <input type="number" id="valorAvaliacao" step="0.01" min="0" placeholder="0,00">
+                    </div>
+                    <button id="enviarAvaliacao" class="btn btn-success">Enviar Avaliação</button>
+                    <div id="avaliacaoStatus" class="status-message"></div>
+                </div>
+
+                <div id="waitingMessage" class="waiting-message" style="display: none;">
+                    <p>Aguardando início da avaliação...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Histórico da Sessão -->
+        <div class="panel history-panel">
+            <h1>Histórico da Sessão</h1>
+            <div id="historicoList">
+                <p class="empty-message">Nenhum imóvel avaliado ainda.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
+
