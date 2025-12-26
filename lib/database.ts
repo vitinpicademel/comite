@@ -43,34 +43,59 @@ export async function obterImovelAtivo() {
 // ==================== AVALIAÇÕES ====================
 
 export async function enviarAvaliacao(imovelId: string, corretor: string, valor: number) {
-  // Verificar se já existe avaliação deste corretor para este imóvel
+  // VALIDAÇÃO CRÍTICA: Verificar se o imóvel está realmente ativo
+  const { data: estado } = await supabase
+    .from('estado_atual')
+    .select('imovel_ativo_id, avaliacao_ativa')
+    .single()
+
+  if (!estado?.avaliacao_ativa) {
+    throw new Error('Nenhuma avaliação ativa no momento')
+  }
+
+  if (estado.imovel_ativo_id !== imovelId) {
+    throw new Error(`Voto rejeitado: imóvel ativo (${estado.imovel_ativo_id}) diferente do imóvel do voto (${imovelId})`)
+  }
+
+  // Verificar se já existe avaliação deste corretor para este imóvel específico
   const { data: existente } = await supabase
     .from('avaliacoes')
     .select('id')
-    .eq('imovel_id', imovelId)
+    .eq('imovel_id', imovelId) // FILTRO OBRIGATÓRIO por imovel_id
     .eq('corretor', corretor)
     .single()
 
   if (existente) {
-    // Atualizar avaliação existente
+    // Atualizar avaliação existente (mesmo imóvel, mesmo corretor)
     const { data, error } = await supabase
       .from('avaliacoes')
-      .update({ valor, updated_at: new Date().toISOString() })
+      .update({ 
+        valor, 
+        updated_at: new Date().toISOString() 
+      })
       .eq('id', existente.id)
+      .eq('imovel_id', imovelId) // Garantir que está atualizando o registro correto
       .select()
       .single()
 
     if (error) throw error
     return data as Avaliacao
   } else {
-    // Criar nova avaliação
+    // Criar nova avaliação com imovel_id obrigatório
     const { data, error } = await supabase
       .from('avaliacoes')
-      .insert({ imovel_id: imovelId, corretor, valor })
+      .insert({ 
+        imovel_id: imovelId, // UUID obrigatório
+        corretor, 
+        valor 
+      })
       .select()
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error('Erro ao inserir avaliação:', error)
+      throw error
+    }
     return data as Avaliacao
   }
 }
