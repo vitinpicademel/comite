@@ -265,20 +265,29 @@ export function subscribeEstadoAtual(callback: (estado: EstadoAtual) => void) {
 }
 
 export function subscribeAvaliacoes(imovelId: string, callback: (avaliacao: Avaliacao) => void) {
-  return supabase
-    .channel(`avaliacoes_${imovelId}`)
+  console.log('📡 Criando subscription para avaliações do imóvel:', imovelId)
+  
+  const channel = supabase
+    .channel(`avaliacoes_${imovelId}_${Date.now()}`) // Nome único para evitar conflitos
     .on(
       'postgres_changes',
       {
-        event: '*',
+        event: '*', // INSERT, UPDATE, DELETE
         schema: 'public',
         table: 'avaliacoes',
         filter: `imovel_id=eq.${imovelId}`
       },
       (payload) => {
-        callback(payload.new as Avaliacao)
+        console.log('📨 Evento Realtime recebido:', payload.eventType, payload.new)
+        if (payload.new) {
+          callback(payload.new as Avaliacao)
+        }
       }
     )
-    .subscribe()
+    .subscribe((status) => {
+      console.log('📡 Status da subscription:', status)
+    })
+  
+  return channel
 }
 

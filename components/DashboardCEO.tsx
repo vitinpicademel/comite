@@ -62,6 +62,7 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
   const [mediaFinal, setMediaFinal] = useState(0)
   const [imovelResultado, setImovelResultado] = useState<{ nome: string; tipo: string } | null>(null)
   const [modoDatashow, setModoDatashow] = useState(false) // false = mostrar nomes, true = ocultar
+  const [useSupabase, setUseSupabase] = useState(false)
   const [corretoresVotaram, setCorretoresVotaram] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -129,6 +130,7 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
       }
     } else {
       // Usar Supabase Realtime
+      setUseSupabase(true)
       obterEstadoAtual().then(estado => {
         if (estado?.imovel_ativo_id) {
           supabase.from('imoveis').select('*').eq('id', estado.imovel_ativo_id).single().then(({ data }) => {
@@ -177,9 +179,7 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
           })
         } else {
           // Só limpar se não estiver mostrando resultados (evita erro ao finalizar)
-          // Usar função de callback para acessar o estado atual
           setImovelAtivo(prev => {
-            // Se não há imóvel ativo no banco e não estamos mostrando resultados, limpar
             return prev && !mostrarResultados ? null : prev
           })
         }
@@ -187,49 +187,72 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
         setContador(estado?.contador_dia || 0)
       })
 
-      // Subscribe Realtime para avaliações quando houver imóvel ativo
-      let channelAvaliacoes: any = null
-      const setupAvaliacoes = async () => {
-        const estado = await obterEstadoAtual()
-        if (estado?.imovel_ativo_id && estado.avaliacao_ativa) {
-          // Carregar avaliações existentes
-          const avs = await obterAvaliacoes(estado.imovel_ativo_id)
-          setAvaliacoes(avs.map(av => ({
-            corretor: av.corretor,
-            valor: Number(av.valor),
-            timestamp: new Date(av.created_at)
-          })))
+      return () => {
+        channelEstado.unsubscribe()
+      }
+    }
+  }, [socket, mostrarResultados])
 
-          // Subscribe para novas avaliações
-          channelAvaliacoes = subscribeAvaliacoes(estado.imovel_ativo_id, (avaliacao) => {
-            setAvaliacoes(prev => {
-              const index = prev.findIndex(av => av.corretor === avaliacao.corretor)
-              if (index >= 0) {
-                const updated = [...prev]
-                updated[index] = {
-                  corretor: avaliacao.corretor,
-                  valor: Number(avaliacao.valor),
-                  timestamp: new Date(avaliacao.created_at)
-                }
-                return updated
-              }
-              return [...prev, {
+  // Subscribe separado para avaliações - reage quando avaliação inicia
+  useEffect(() => {
+    if (socket) return // Skip se usar Socket.IO
+    if (!useSupabase) return // Skip se não usar Supabase
+
+    let channelAvaliacoes: any = null
+
+    const setupAvaliacoes = async () => {
+      const estado = await obterEstadoAtual()
+      
+      if (estado?.imovel_ativo_id && estado.avaliacao_ativa) {
+        console.log('🔄 Configurando subscription de avaliações para imóvel:', estado.imovel_ativo_id)
+        
+        // Carregar avaliações existentes
+        const avs = await obterAvaliacoes(estado.imovel_ativo_id)
+        setAvaliacoes(avs.map(av => ({
+          corretor: av.corretor,
+          valor: Number(av.valor),
+          timestamp: new Date(av.created_at)
+        })))
+
+        // Subscribe para novas avaliações em tempo real
+        channelAvaliacoes = subscribeAvaliacoes(estado.imovel_ativo_id, (avaliacao) => {
+          console.log('✅ Nova avaliação recebida em tempo real:', avaliacao)
+          setAvaliacoes(prev => {
+            const index = prev.findIndex(av => av.corretor === avaliacao.corretor)
+            if (index >= 0) {
+              // Atualizar avaliação existente
+              const updated = [...prev]
+              updated[index] = {
                 corretor: avaliacao.corretor,
                 valor: Number(avaliacao.valor),
                 timestamp: new Date(avaliacao.created_at)
-              }]
-            })
+              }
+              return updated
+            }
+            // Adicionar nova avaliação
+            return [...prev, {
+              corretor: avaliacao.corretor,
+              valor: Number(avaliacao.valor),
+              timestamp: new Date(avaliacao.created_at)
+            }]
           })
-        }
-      }
-      setupAvaliacoes()
-
-      return () => {
-        channelEstado.unsubscribe()
-        if (channelAvaliacoes) channelAvaliacoes.unsubscribe()
+        })
+      } else {
+        // Limpar avaliações se não há avaliação ativa
+        setAvaliacoes([])
       }
     }
-  }, [socket])
+
+    // Executar imediatamente
+    setupAvaliacoes()
+
+    return () => {
+      if (channelAvaliacoes) {
+        console.log('🔌 Desconectando subscription de avaliações')
+        channelAvaliacoes.unsubscribe()
+      }
+    }
+  }, [avaliacaoAtiva, imovelAtivo, socket, useSupabase])
 
   const cadastrarImovel = async () => {
     if (!imovelNome.trim() || !imovelTipo) {
