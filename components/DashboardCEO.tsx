@@ -151,9 +151,11 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
           })
         } else {
           // Só limpar se não estiver mostrando resultados (evita erro ao finalizar)
-          if (!mostrarResultados) {
-            setImovelAtivo(null)
-          }
+          // Usar função de callback para acessar o estado atual
+          setImovelAtivo(prev => {
+            // Se não há imóvel ativo no banco e não estamos mostrando resultados, limpar
+            return prev && !mostrarResultados ? null : prev
+          })
         }
         setAvaliacaoAtiva(estado?.avaliacao_ativa || false)
         setContador(estado?.contador_dia || 0)
