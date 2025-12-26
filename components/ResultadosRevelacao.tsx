@@ -13,9 +13,10 @@ interface ResultadosRevelacaoProps {
   avaliacoes: Avaliacao[]
   media: number
   imovel: { nome: string; tipo: string }
+  modoDatashow?: boolean
 }
 
-export default function ResultadosRevelacao({ avaliacoes, media, imovel }: ResultadosRevelacaoProps) {
+export default function ResultadosRevelacao({ avaliacoes, media, imovel, modoDatashow = false }: ResultadosRevelacaoProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -47,9 +48,11 @@ export default function ResultadosRevelacao({ avaliacoes, media, imovel }: Resul
                 <div className="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center">
                   <Users className="w-5 h-5 text-cyan-500" />
                 </div>
-                <span className="text-white font-medium">{avaliacao.corretor}</span>
+                <span className={`text-white font-medium ${modoDatashow ? 'blur-sm' : ''}`}>
+                {modoDatashow ? 'Corretor' : avaliacao.corretor}
+              </span>
               </div>
-              <span className="text-cyan-400 font-bold text-lg number-display">
+              <span className={`text-cyan-400 font-bold text-lg number-display ${modoDatashow ? 'blur-sm' : ''}`}>
                 R$ {avaliacao.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </motion.div>

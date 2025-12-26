@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { CheckCircle2, Clock, Users } from 'lucide-react'
+import { CheckCircle2, Users } from 'lucide-react'
 
 interface StatusVotacaoProps {
   avaliacoes: Array<{ corretor: string; valor: number; timestamp?: Date }>
@@ -10,9 +10,6 @@ interface StatusVotacaoProps {
 }
 
 export default function StatusVotacao({ avaliacoes, mostrarValores, modoDatashow }: StatusVotacaoProps) {
-  // Lista de corretores que votaram
-  const corretoresVotaram = new Set(avaliacoes.map(av => av.corretor))
-  
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -32,26 +29,33 @@ export default function StatusVotacao({ avaliacoes, mostrarValores, modoDatashow
       <div className="space-y-2">
         {avaliacoes.map((avaliacao, index) => (
           <motion.div
-            key={avaliacao.corretor}
+            key={`${avaliacao.corretor}-${index}`}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.1 }}
-            className="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5"
+            className={`flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5 ${
+              modoDatashow ? 'blur-sm' : ''
+            }`}
           >
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="w-5 h-5 text-cyan-500" />
-              <span className="text-white font-medium">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <CheckCircle2 className="w-5 h-5 text-cyan-500 flex-shrink-0" />
+              <span className="text-white font-medium truncate">
                 {modoDatashow ? 'Corretor' : avaliacao.corretor}
               </span>
+              {!modoDatashow && (
+                <span className="text-cyan-400 font-bold number-display ml-auto">
+                  R$ {avaliacao.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              )}
             </div>
-            {mostrarValores ? (
-              <span className="text-cyan-400 font-bold number-display">
-                R$ {avaliacao.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            ) : (
-              <div className="flex items-center gap-2 text-cyan-400">
+            {modoDatashow ? (
+              <div className="flex items-center gap-2 text-cyan-400 ml-2">
                 <CheckCircle2 className="w-4 h-4" />
                 <span className="text-sm">Votou</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-emerald-400 ml-2">
+                <span className="text-xs">✓</span>
               </div>
             )}
           </motion.div>

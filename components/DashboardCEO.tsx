@@ -469,10 +469,10 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
                           {modoDatashow ? 'Mostrar Detalhes' : 'Ocultar Nomes'}
                         </button>
                       </div>
-                      {/* Status de Votação */}
+                      {/* Status de Votação - CEO sempre vê valores */}
                       <StatusVotacao 
                         avaliacoes={avaliacoes} 
-                        mostrarValores={mostrarResultados}
+                        mostrarValores={true} // CEO sempre vê valores
                         modoDatashow={modoDatashow}
                       />
                     </div>
@@ -488,6 +488,7 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
                   avaliacoes={avaliacoes}
                   media={mediaFinal}
                   imovel={imovelResultado}
+                  modoDatashow={modoDatashow}
                 />
               )}
             </AnimatePresence>
