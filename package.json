@@ -1,0 +1,39 @@
+{
+  "name": "comite-avaliativo-imobiliario",
+  "version": "2.0.0",
+  "description": "Sistema de avaliação imobiliária em tempo real - Next.js",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "dev:socket": "node server.js",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test:db": "node test-connection.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.89.0",
+    "clsx": "^2.1.0",
+    "dotenv": "^17.2.3",
+    "express": "^4.22.1",
+    "framer-motion": "^11.0.5",
+    "lucide-react": "^0.309.0",
+    "next": "^14.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.6.1",
+    "tailwind-merge": "^2.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "@types/react": "18.3.27",
+    "@types/react-dom": "^18.2.18",
+    "autoprefixer": "^10.4.17",
+    "eslint": "^8.56.0",
+    "eslint-config-next": "^14.1.0",
+    "postcss": "^8.4.33",
+    "tailwindcss": "^3.4.1",
+    "typescript": "5.9.3"
+  }
+}
