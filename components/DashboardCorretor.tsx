@@ -165,7 +165,7 @@ export default function DashboardCorretor({ socket, onBack }: { socket: Socket |
             <ArrowLeft className="w-5 h-5 text-slate-400" />
           </button>
           
-          <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-emerald-400 to-emerald-600 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-cyan-400 to-cyan-600 bg-clip-text text-transparent">
             Painel Corretor
           </h1>
           <p className="text-slate-400 mb-6">Digite seu nome para começar</p>
@@ -181,12 +181,12 @@ export default function DashboardCorretor({ socket, onBack }: { socket: Socket |
                 onChange={(e) => setNomeCorretor(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && entrarComoCorretor()}
                 placeholder="Seu nome completo"
-                className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
               />
             </div>
             <button
               onClick={entrarComoCorretor}
-              className="w-full px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-emerald-500/50 hover:shadow-emerald-500/70 hover:scale-[1.02]"
+              className="w-full px-6 py-3 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-cyan-500/50 hover:shadow-cyan-500/70 hover:scale-[1.02]"
             >
               Entrar
             </button>
@@ -197,13 +197,13 @@ export default function DashboardCorretor({ socket, onBack }: { socket: Socket |
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4">
+    <div className="min-h-screen bg-slate-900 p-4">
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="glass-strong rounded-2xl p-4 border border-emerald-500/20"
+          className="glass-strong rounded-2xl p-4 border border-cyan-500/20"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -228,10 +228,10 @@ export default function DashboardCorretor({ socket, onBack }: { socket: Socket |
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="glass rounded-2xl p-6 border border-emerald-500/30"
+              className="glass rounded-2xl p-6 border border-cyan-500/30"
             >
               <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <Home className="w-5 h-5 text-emerald-500" />
+                <Home className="w-5 h-5 text-cyan-500" />
                 Imóvel em Avaliação
               </h2>
               <div className="bg-slate-900/50 rounded-xl p-4 mb-6">
@@ -253,7 +253,7 @@ export default function DashboardCorretor({ socket, onBack }: { socket: Socket |
                     value={valor ? `R$ ${valor}` : ''}
                     onChange={handleValorChange}
                     placeholder="R$ 0,00"
-                    className="w-full px-4 py-4 bg-slate-900/50 border border-slate-700 rounded-xl text-white text-2xl font-bold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all number-display"
+                    className="w-full px-4 py-4 bg-slate-900/50 border border-slate-700 rounded-xl text-white text-2xl font-bold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all number-display"
                   />
                 </div>
 
@@ -263,10 +263,10 @@ export default function DashboardCorretor({ socket, onBack }: { socket: Socket |
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.9 }}
-                      className="flex items-center gap-2 p-4 bg-emerald-500/20 border border-emerald-500/50 rounded-xl"
+                      className="flex items-center gap-2 p-4 bg-cyan-500/20 border border-cyan-500/50 rounded-xl"
                     >
-                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                      <span className="text-emerald-400 font-medium">Voto enviado com sucesso!</span>
+                      <CheckCircle2 className="w-5 h-5 text-cyan-500" />
+                      <span className="text-cyan-400 font-medium">Voto enviado com sucesso!</span>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -277,7 +277,7 @@ export default function DashboardCorretor({ socket, onBack }: { socket: Socket |
                     animate={{ opacity: 1 }}
                     className={`p-4 rounded-xl ${
                       mensagemStatus.includes('registrado') 
-                        ? 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-400'
+                        ? 'bg-cyan-500/20 border border-cyan-500/50 text-cyan-400'
                         : 'bg-red-500/20 border border-red-500/50 text-red-400'
                     }`}
                   >
@@ -288,7 +288,7 @@ export default function DashboardCorretor({ socket, onBack }: { socket: Socket |
                 <button
                   onClick={enviarAvaliacao}
                   disabled={!valor || votoEnviado}
-                  className="w-full px-6 py-4 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-emerald-500/50 hover:shadow-emerald-500/70 hover:scale-[1.02] flex items-center justify-center gap-2"
+                  className="w-full px-6 py-4 bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-cyan-500/50 hover:shadow-cyan-500/70 hover:scale-[1.02] flex items-center justify-center gap-2"
                 >
                   <Send className="w-5 h-5" />
                   {votoEnviado ? 'Voto Enviado' : 'Enviar Avaliação'}

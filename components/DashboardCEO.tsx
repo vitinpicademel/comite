@@ -10,13 +10,16 @@ import {
   Square, 
   TrendingUp,
   Building2,
-  CheckCircle2
+  CheckCircle2,
+  Eye,
+  EyeOff
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { obterEstadoAtual, obterHistorico, cadastrarImovel as cadastrar, definirImovelAtivo, iniciarAvaliacao as iniciar, finalizarAvaliacao as finalizar, subscribeEstadoAtual, subscribeAvaliacoes, obterAvaliacoes } from '@/lib/database'
 import AnimatedCounter from './AnimatedCounter'
 import ResultadosRevelacao from './ResultadosRevelacao'
 import HistoricoLista from './HistoricoLista'
+import StatusVotacao from './StatusVotacao'
 
 interface Imovel {
   nome: string
@@ -58,6 +61,8 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
   const [mostrarResultados, setMostrarResultados] = useState(false)
   const [mediaFinal, setMediaFinal] = useState(0)
   const [imovelResultado, setImovelResultado] = useState<{ nome: string; tipo: string } | null>(null)
+  const [modoDatashow, setModoDatashow] = useState(false) // false = mostrar nomes, true = ocultar
+  const [corretoresVotaram, setCorretoresVotaram] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (socket) {
@@ -77,6 +82,7 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
       })
 
       socket.on('avaliacaoRecebida', (avaliacao: Avaliacao) => {
+        setCorretoresVotaram(prev => new Set([...prev, avaliacao.corretor]))
         setAvaliacoes(prev => {
           const index = prev.findIndex(av => av.corretor === avaliacao.corretor)
           if (index >= 0) {
@@ -133,14 +139,34 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
         setContador(estado?.contador_dia || 0)
       })
       
-      obterHistorico().then(historico => {
-        setHistorico(historico.map(h => ({
-          nome: h.nome_imovel,
-          tipo: h.tipo_imovel,
-          media: Number(h.media_final),
-          avaliacoes: [],
-          data: new Date(h.created_at)
-        })))
+      obterHistorico().then(async historico => {
+        // Buscar quantidade de votos para cada sessão
+        const historicoCompleto = await Promise.all(historico.map(async (h) => {
+          if (h.imovel_id) {
+            const { data: avs } = await supabase
+              .from('avaliacoes')
+              .select('id')
+              .eq('imovel_id', h.imovel_id)
+            
+            return {
+              nome: h.nome_imovel,
+              tipo: h.tipo_imovel,
+              media: Number(h.media_final),
+              avaliacoes: [],
+              data: new Date(h.created_at),
+              qtdVotos: avs?.length || 0
+            }
+          }
+          return {
+            nome: h.nome_imovel,
+            tipo: h.tipo_imovel,
+            media: Number(h.media_final),
+            avaliacoes: [],
+            data: new Date(h.created_at),
+            qtdVotos: 0
+          }
+        }))
+        setHistorico(historicoCompleto)
       })
 
       // Subscribe Realtime para estado
@@ -281,13 +307,13 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4 md:p-8">
+    <div className="min-h-screen bg-slate-900 p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header com Contador */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="glass-strong rounded-2xl p-6 border border-emerald-500/20"
+          className="glass-strong rounded-2xl p-6 border border-cyan-500/20"
         >
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
@@ -303,10 +329,10 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <TrendingUp className="w-6 h-6 text-emerald-500" />
+              <TrendingUp className="w-6 h-6 text-cyan-500" />
               <div>
                 <p className="text-slate-400 text-sm">Imóveis Avaliados Hoje</p>
-                <AnimatedCounter value={contador} className="text-3xl md:text-4xl font-bold text-emerald-500" />
+                <AnimatedCounter value={contador} className="text-3xl md:text-4xl font-bold text-cyan-500" />
               </div>
             </div>
           </div>
@@ -322,7 +348,7 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
               className="glass rounded-2xl p-6"
             >
               <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-emerald-500" />
+                <Building2 className="w-5 h-5 text-cyan-500" />
                 Cadastro de Imóvel
               </h2>
               <div className="space-y-4">
@@ -335,7 +361,7 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
                     value={imovelNome}
                     onChange={(e) => setImovelNome(e.target.value)}
                     placeholder="Ex: Casa na Rua das Flores, 123"
-                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
                   />
                 </div>
                 <div>
@@ -345,7 +371,7 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
                   <select
                     value={imovelTipo}
                     onChange={(e) => setImovelTipo(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
                   >
                     <option value="">Selecione o tipo</option>
                     {TIPOS_IMOVEL.map(tipo => (
@@ -357,7 +383,7 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
                 </div>
                 <button
                   onClick={cadastrarImovel}
-                  className="w-full px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-emerald-500/50 hover:shadow-emerald-500/70 hover:scale-[1.02]"
+                  className="w-full px-6 py-3 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-cyan-500/50 hover:shadow-cyan-500/70 hover:scale-[1.02]"
                 >
                   Cadastrar Imóvel
                 </button>
@@ -371,10 +397,10 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  className="glass rounded-2xl p-6 border border-emerald-500/30"
+                  className="glass rounded-2xl p-6 border border-cyan-500/30"
                 >
                   <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                    <Home className="w-5 h-5 text-emerald-500" />
+                    <Home className="w-5 h-5 text-cyan-500" />
                     Imóvel em Avaliação
                   </h2>
                   <div className="bg-slate-900/50 rounded-xl p-4 mb-4">
@@ -389,7 +415,7 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
                     {!avaliacaoAtiva ? (
                       <button
                         onClick={iniciarAvaliacao}
-                        className="flex-1 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-emerald-500/50 hover:shadow-emerald-500/70 hover:scale-[1.02] flex items-center justify-center gap-2"
+                        className="flex-1 px-6 py-3 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-cyan-500/50 hover:shadow-cyan-500/70 hover:scale-[1.02] flex items-center justify-center gap-2"
                       >
                         <Play className="w-5 h-5" />
                         Iniciar Rodada
@@ -405,8 +431,8 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
                     )}
                   </div>
                   {avaliacaoAtiva && (
-                    <div className="mt-4 flex items-center gap-2 text-emerald-400 text-sm">
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                    <div className="mt-4 flex items-center gap-2 text-cyan-400 text-sm">
+                      <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse" />
                       <span>Avaliação em andamento - {avaliacoes.length} voto(s) recebido(s)</span>
                     </div>
                   )}

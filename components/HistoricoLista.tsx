@@ -15,6 +15,7 @@ interface HistoricoItem {
   media: number
   avaliacoes: Avaliacao[]
   data: Date
+  qtdVotos?: number
 }
 
 interface HistoricoListaProps {
@@ -30,7 +31,7 @@ export default function HistoricoLista({ historico }: HistoricoListaProps) {
         className="glass rounded-2xl p-6"
       >
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-          <History className="w-5 h-5 text-emerald-500" />
+          <History className="w-5 h-5 text-cyan-500" />
           Histórico da Sessão
         </h2>
         <p className="text-slate-500 text-center py-8">
@@ -57,11 +58,11 @@ export default function HistoricoLista({ historico }: HistoricoListaProps) {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.05 }}
-            className="glass-strong rounded-xl p-4 border border-slate-700/50 hover:border-emerald-500/30 transition-colors"
+            className="glass-strong rounded-xl p-4 border border-slate-700/50 hover:border-cyan-500/30 transition-colors"
           >
             <div className="flex items-start gap-3 mb-2">
-              <div className="p-2 bg-emerald-500/20 rounded-lg">
-                <Home className="w-4 h-4 text-emerald-500" />
+              <div className="p-2 bg-cyan-500/20 rounded-lg">
+                <Home className="w-4 h-4 text-cyan-500" />
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-white font-semibold truncate">{item.nome}</h3>
@@ -69,15 +70,20 @@ export default function HistoricoLista({ historico }: HistoricoListaProps) {
               </div>
             </div>
             <div className="mt-3 pt-3 border-t border-slate-700/50">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-2">
                 <span className="text-slate-400 text-sm">Média:</span>
-                <span className="text-emerald-400 font-bold number-display">
+                <span className="text-cyan-400 font-bold number-display">
                   R$ {item.media.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
-              <p className="text-slate-500 text-xs mt-2">
-                {new Date(item.data).toLocaleString('pt-BR')}
-              </p>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 text-xs">
+                  {new Date(item.data).toLocaleString('pt-BR')}
+                </span>
+                <span className="text-slate-500 text-xs">
+                  {item.qtdVotos || item.avaliacoes.length} voto(s)
+                </span>
+              </div>
             </div>
           </motion.div>
         ))}

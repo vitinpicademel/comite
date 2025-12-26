@@ -16,24 +16,26 @@
 
 body {
   font-family: var(--font-inter), system-ui, sans-serif;
-  background: rgb(2, 6, 23);
+  background: rgb(15, 23, 42); /* slate-900 */
   color: rgb(248, 250, 252);
   overflow-x: hidden;
 }
 
 /* Glassmorphism utility */
 .glass {
-  background: rgba(15, 23, 42, 0.7);
+  background: rgba(15, 23, 42, 0.6);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 }
 
 .glass-strong {
-  background: rgba(15, 23, 42, 0.85);
+  background: rgba(15, 23, 42, 0.8);
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
 }
 
 /* Scrollbar styling */
@@ -46,12 +48,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(16, 185, 129, 0.5);
+  background: rgba(6, 182, 212, 0.5); /* cyan-500 */
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(16, 185, 129, 0.7);
+  background: rgba(6, 182, 212, 0.7);
 }
 
 /* Number formatting */
