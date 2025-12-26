@@ -57,6 +57,7 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
   const [historico, setHistorico] = useState<HistoricoItem[]>([])
   const [mostrarResultados, setMostrarResultados] = useState(false)
   const [mediaFinal, setMediaFinal] = useState(0)
+  const [imovelResultado, setImovelResultado] = useState<{ nome: string; tipo: string } | null>(null)
 
   useEffect(() => {
     if (socket) {
@@ -406,11 +407,11 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
 
             {/* Resultados */}
             <AnimatePresence>
-              {mostrarResultados && (
+              {mostrarResultados && imovelResultado && (
                 <ResultadosRevelacao
                   avaliacoes={avaliacoes}
                   media={mediaFinal}
-                  imovel={imovelAtivo!}
+                  imovel={imovelResultado}
                 />
               )}
             </AnimatePresence>
