@@ -205,16 +205,21 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
       return
     }
     
-    if (socket) {
-      socket.emit('cadastrarImovel', { nome: imovelNome.trim(), tipo: imovelTipo })
-    } else {
-      const imovel = await cadastrar(imovelNome.trim(), imovelTipo)
-      await definirImovelAtivo(imovel.id)
-      setImovelAtivo({ nome: imovel.nome, tipo: imovel.tipo })
+    try {
+      if (socket) {
+        socket.emit('cadastrarImovel', { nome: imovelNome.trim(), tipo: imovelTipo })
+      } else {
+        const imovel = await cadastrar(imovelNome.trim(), imovelTipo)
+        await definirImovelAtivo(imovel.id)
+        setImovelAtivo({ nome: imovel.nome, tipo: imovel.tipo })
+      }
+      
+      setImovelNome('')
+      setImovelTipo('')
+    } catch (error: any) {
+      console.error('Erro ao cadastrar imóvel:', error)
+      alert(`Erro ao cadastrar imóvel: ${error.message || 'Verifique se o Supabase está configurado na Vercel'}`)
     }
-    
-    setImovelNome('')
-    setImovelTipo('')
   }
 
   const iniciarAvaliacao = async () => {

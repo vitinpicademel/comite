@@ -1,15 +1,22 @@
-import { supabase, type Imovel, type Avaliacao, type Sessao, type EstadoAtual } from './supabase'
+import { supabase, supabaseConfigured, type Imovel, type Avaliacao, type Sessao, type EstadoAtual } from './supabase'
 
 // ==================== IMÓVEIS ====================
 
 export async function cadastrarImovel(nome: string, tipo: string) {
+  if (!supabaseConfigured) {
+    throw new Error('Supabase não configurado. Configure as variáveis de ambiente NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY na Vercel.')
+  }
+
   const { data, error } = await supabase
     .from('imoveis')
     .insert({ nome, tipo })
     .select()
     .single()
 
-  if (error) throw error
+  if (error) {
+    console.error('Erro ao cadastrar imóvel:', error)
+    throw error
+  }
   return data as Imovel
 }
 

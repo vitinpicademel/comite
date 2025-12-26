@@ -1,13 +1,31 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
-// Criar cliente apenas se as variáveis estiverem configuradas
+// Verificar se as variáveis estão configuradas
+const isConfigured = supabaseUrl && 
+                     supabaseAnonKey && 
+                     !supabaseUrl.includes('placeholder') && 
+                     !supabaseAnonKey.includes('placeholder') &&
+                     supabaseUrl.includes('.supabase.co')
+
+// Criar cliente Supabase
 let supabase: SupabaseClient
 
-if (supabaseUrl.includes('placeholder') || supabaseAnonKey.includes('placeholder')) {
-  // Criar cliente dummy para build
+if (isConfigured) {
+  supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    realtime: {
+      params: {
+        eventsPerSecond: 10
+      }
+    }
+  })
+  if (typeof window !== 'undefined') {
+    console.log('✅ Supabase configurado:', supabaseUrl)
+  }
+} else {
+  // Criar cliente dummy que vai falhar de forma controlada
   supabase = createClient('https://placeholder.supabase.co', 'placeholder-key', {
     realtime: {
       params: {
@@ -16,19 +34,12 @@ if (supabaseUrl.includes('placeholder') || supabaseAnonKey.includes('placeholder
     }
   })
   if (typeof window !== 'undefined') {
-    console.warn('⚠️ Variáveis de ambiente do Supabase não configuradas!')
+    console.error('❌ ERRO: Variáveis de ambiente do Supabase não configuradas!')
+    console.error('Configure NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY na Vercel')
   }
-} else {
-  supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    realtime: {
-      params: {
-        eventsPerSecond: 10
-      }
-    }
-  })
 }
 
-export { supabase }
+export { supabase, isConfigured as supabaseConfigured }
 
 // Tipos TypeScript para o banco
 export interface Imovel {
