@@ -340,6 +340,25 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
     }
   }
 
+  const carregarImovelParaEdicao = async (imovelId: string) => {
+    try {
+      // Carregar imóvel sem iniciar votação
+      const { data: imovel } = await supabase
+        .from('imoveis')
+        .select('*')
+        .eq('id', imovelId)
+        .single()
+      
+      if (imovel) {
+        setImovelAtivo(imovel as ImovelType)
+        setEditandoImovel(false) // Garantir que não está em modo de edição
+      }
+    } catch (error: any) {
+      console.error('Erro ao carregar imóvel:', error)
+      alert(`Erro ao carregar imóvel: ${error.message || 'Erro desconhecido'}`)
+    }
+  }
+
   const iniciarAvaliacaoDeImovel = async (imovelId: string) => {
     try {
       // Se estiver editando, cancelar edição
@@ -490,6 +509,7 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
             <FilaImoveis 
               imoveis={imoveisPendentes}
               onIniciar={iniciarAvaliacaoDeImovel}
+              onEditar={carregarImovelParaEdicao}
               imovelAtivoId={imovelAtivo?.id || null}
             />
             {/* Form de Cadastro */}

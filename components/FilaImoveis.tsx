@@ -1,7 +1,7 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { Clock, Play, Home } from 'lucide-react'
+import { Clock, Play, Home, Edit2 } from 'lucide-react'
 
 interface Imovel {
   id: string
@@ -14,10 +14,11 @@ interface Imovel {
 interface FilaImoveisProps {
   imoveis: Imovel[]
   onIniciar: (imovelId: string) => void
+  onEditar?: (imovelId: string) => void
   imovelAtivoId?: string | null
 }
 
-export default function FilaImoveis({ imoveis, onIniciar, imovelAtivoId }: FilaImoveisProps) {
+export default function FilaImoveis({ imoveis, onIniciar, onEditar, imovelAtivoId }: FilaImoveisProps) {
   if (imoveis.length === 0) {
     return (
       <motion.div
@@ -72,13 +73,24 @@ export default function FilaImoveis({ imoveis, onIniciar, imovelAtivoId }: FilaI
                   </div>
                 </div>
                 {imovelAtivoId !== imovel.id && (
-                  <button
-                    onClick={() => onIniciar(imovel.id)}
-                    className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold rounded-lg transition-all text-sm flex items-center gap-2 shadow-lg shadow-cyan-500/50 hover:shadow-cyan-500/70"
-                  >
-                    <Play className="w-4 h-4" />
-                    Iniciar
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {onEditar && (
+                      <button
+                        onClick={() => onEditar(imovel.id)}
+                        className="p-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-all"
+                        title="Editar imóvel"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => onIniciar(imovel.id)}
+                      className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold rounded-lg transition-all text-sm flex items-center gap-2 shadow-lg shadow-cyan-500/50 hover:shadow-cyan-500/70"
+                    >
+                      <Play className="w-4 h-4" />
+                      Iniciar
+                    </button>
+                  </div>
                 )}
                 {imovelAtivoId === imovel.id && (
                   <div className="px-4 py-2 bg-cyan-500/20 text-cyan-400 rounded-lg text-sm font-medium flex items-center gap-2">
