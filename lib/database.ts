@@ -156,11 +156,15 @@ export async function finalizarAvaliacao() {
   }
 
   // Obter imóvel e avaliações
-  const { data: imovel } = await supabase
+  const { data: imovel, error: imovelError } = await supabase
     .from('imoveis')
     .select('*')
     .eq('id', estado.imovel_ativo_id)
     .single()
+
+  if (imovelError || !imovel) {
+    throw new Error(`Imóvel não encontrado: ${imovelError?.message || 'Dados não disponíveis'}`)
+  }
 
   const avaliacoes = await obterAvaliacoes(estado.imovel_ativo_id)
 
@@ -170,7 +174,7 @@ export async function finalizarAvaliacao() {
     : 0
 
   // Salvar na sessão
-  const { data: sessao } = await supabase
+  const { data: sessao, error: sessaoError } = await supabase
     .from('sessoes')
     .insert({
       imovel_id: estado.imovel_ativo_id,
@@ -181,6 +185,10 @@ export async function finalizarAvaliacao() {
     })
     .select()
     .single()
+
+  if (sessaoError) {
+    throw new Error(`Erro ao salvar sessão: ${sessaoError.message}`)
+  }
 
   // Obter estado atual para incrementar contador
   const { data: estadoAtual } = await supabase

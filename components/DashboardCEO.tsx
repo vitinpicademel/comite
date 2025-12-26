@@ -234,17 +234,39 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
   }
 
   const finalizarAvaliacao = async () => {
-    if (!imovelAtivo) return
+    if (!imovelAtivo) {
+      alert('Nenhum imóvel em avaliação')
+      return
+    }
     
-    if (socket) {
-      socket.emit('finalizarAvaliacao')
-    } else {
-      const resultado = await finalizar()
-      setAvaliacaoAtiva(false)
-      setMediaFinal(resultado.media)
-      setMostrarResultados(true)
-      setContador(prev => prev + 1)
-      setImovelAtivo(null)
+    try {
+      if (socket) {
+        socket.emit('finalizarAvaliacao')
+      } else {
+        const resultado = await finalizar()
+        setAvaliacaoAtiva(false)
+        setMediaFinal(resultado.media)
+        setMostrarResultados(true)
+        
+        // Adicionar ao histórico
+        const novoHistorico: HistoricoItem = {
+          nome: imovelAtivo.nome,
+          tipo: imovelAtivo.tipo,
+          media: resultado.media,
+          avaliacoes: resultado.avaliacoes.map(av => ({
+            corretor: av.corretor,
+            valor: Number(av.valor),
+            timestamp: new Date(av.created_at)
+          })),
+          data: new Date()
+        }
+        setHistorico(prev => [novoHistorico, ...prev])
+        setContador(prev => prev + 1)
+        setImovelAtivo(null)
+      }
+    } catch (error: any) {
+      console.error('Erro ao finalizar avaliação:', error)
+      alert(`Erro ao finalizar avaliação: ${error.message || 'Erro desconhecido'}`)
     }
   }
 
