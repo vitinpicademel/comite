@@ -1,17 +1,9 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-// Ler variáveis de ambiente (funciona tanto no cliente quanto no servidor)
-const getEnvVar = (key: string): string => {
-  if (typeof window !== 'undefined') {
-    // No cliente, as variáveis NEXT_PUBLIC_* são injetadas no build
-    return (window as any).__NEXT_DATA__?.env?.[key] || process.env[key] || ''
-  }
-  // No servidor
-  return process.env[key] || ''
-}
-
-const supabaseUrl = getEnvVar('NEXT_PUBLIC_SUPABASE_URL')
-const supabaseAnonKey = getEnvVar('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+// Ler variáveis de ambiente
+// No Next.js, NEXT_PUBLIC_* são injetadas no build e disponíveis em process.env
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
 // Verificar se as variáveis estão configuradas corretamente
 const isConfigured = supabaseUrl && 
