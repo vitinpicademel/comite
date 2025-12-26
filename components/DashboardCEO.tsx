@@ -150,7 +150,10 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
             if (data) setImovelAtivo({ nome: data.nome, tipo: data.tipo })
           })
         } else {
-          setImovelAtivo(null)
+          // Só limpar se não estiver mostrando resultados (evita erro ao finalizar)
+          if (!mostrarResultados) {
+            setImovelAtivo(null)
+          }
         }
         setAvaliacaoAtiva(estado?.avaliacao_ativa || false)
         setContador(estado?.contador_dia || 0)
@@ -240,6 +243,9 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
       return
     }
     
+    // SALVAR o imóvel ANTES de finalizar (pode ser limpo pelo Realtime)
+    const imovelSalvo = { ...imovelAtivo }
+    
     try {
       if (socket) {
         socket.emit('finalizarAvaliacao')
@@ -247,12 +253,13 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
         const resultado = await finalizar()
         setAvaliacaoAtiva(false)
         setMediaFinal(resultado.media)
+        setImovelResultado(imovelSalvo) // Usar o imóvel salvo
         setMostrarResultados(true)
         
-        // Adicionar ao histórico
+        // Adicionar ao histórico usando o imóvel salvo
         const novoHistorico: HistoricoItem = {
-          nome: imovelAtivo.nome,
-          tipo: imovelAtivo.tipo,
+          nome: imovelSalvo.nome,
+          tipo: imovelSalvo.tipo,
           media: resultado.media,
           avaliacoes: resultado.avaliacoes.map(av => ({
             corretor: av.corretor,
@@ -263,7 +270,7 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
         }
         setHistorico(prev => [novoHistorico, ...prev])
         setContador(prev => prev + 1)
-        setImovelAtivo(null)
+        setImovelAtivo(null) // Limpar apenas depois de usar
       }
     } catch (error: any) {
       console.error('Erro ao finalizar avaliação:', error)
