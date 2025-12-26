@@ -18,7 +18,7 @@ import {
   X
 } from 'lucide-react'
 import { supabase, type Imovel as ImovelType } from '@/lib/supabase'
-import { obterEstadoAtual, obterHistorico, cadastrarImovel as cadastrar, definirImovelAtivo, iniciarAvaliacao as iniciar, finalizarAvaliacao as finalizar, subscribeEstadoAtual, subscribeAvaliacoes, obterAvaliacoes, obterImoveisPendentes, atualizarImovel } from '@/lib/database'
+import { obterEstadoAtual, obterHistorico, cadastrarImovel as cadastrar, definirImovelAtivo, iniciarAvaliacao as iniciar, finalizarAvaliacao as finalizar, subscribeEstadoAtual, subscribeAvaliacoes, obterAvaliacoes, obterImoveisPendentes, atualizarImovel, excluirAvaliacao } from '@/lib/database'
 import AnimatedCounter from './AnimatedCounter'
 import ResultadosRevelacao from './ResultadosRevelacao'
 import HistoricoLista from './HistoricoLista'
@@ -30,6 +30,7 @@ interface Avaliacao {
   corretor: string
   valor: number
   timestamp: Date
+  id?: string
 }
 
 interface HistoricoItem {
@@ -201,7 +202,8 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
             setAvaliacoes(avs.map(av => ({
               corretor: av.corretor,
               valor: Number(av.valor),
-              timestamp: new Date(av.created_at)
+              timestamp: new Date(av.created_at),
+              id: av.id
             })))
           })
         } else if (!novaAvaliacaoAtiva) {
@@ -231,41 +233,51 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
         console.log('🔄 Configurando subscription de avaliações para imóvel:', estado.imovel_ativo_id)
         
         // FILTRO: Subscribe apenas para avaliações deste imóvel específico
-        channelAvaliacoes = subscribeAvaliacoes(estado.imovel_ativo_id, (avaliacao) => {
-          // VALIDAÇÃO: Verificar se a avaliação recebida é realmente deste imóvel
-          if (avaliacao.imovel_id !== estado.imovel_ativo_id) {
-            console.warn('⚠️ Avaliação recebida de imóvel diferente! Ignorando...', {
-              recebido: avaliacao.imovel_id,
-              esperado: estado.imovel_ativo_id
-            })
-            return
-          }
+        channelAvaliacoes = subscribeAvaliacoes(
+          estado.imovel_ativo_id, 
+          (avaliacao) => {
+            // VALIDAÇÃO: Verificar se a avaliação recebida é realmente deste imóvel
+            if (avaliacao.imovel_id !== estado.imovel_ativo_id) {
+              console.warn('⚠️ Avaliação recebida de imóvel diferente! Ignorando...', {
+                recebido: avaliacao.imovel_id,
+                esperado: estado.imovel_ativo_id
+              })
+              return
+            }
 
-          console.log('✅ Nova avaliação recebida em tempo real para imóvel:', estado.imovel_ativo_id, avaliacao)
-          setAvaliacoes(prev => {
-            // FILTRO: Garantir que só processamos avaliações deste imóvel
-            const index = prev.findIndex(av => av.corretor === avaliacao.corretor)
-            if (index >= 0) {
-              // Atualizar avaliação existente
-              const updated = [...prev]
-              updated[index] = {
+            console.log('✅ Nova avaliação recebida em tempo real para imóvel:', estado.imovel_ativo_id, avaliacao)
+            setAvaliacoes(prev => {
+              // FILTRO: Garantir que só processamos avaliações deste imóvel
+              const index = prev.findIndex(av => av.id === avaliacao.id || (av.corretor === avaliacao.corretor && !av.id))
+              if (index >= 0) {
+                // Atualizar avaliação existente
+                const updated = [...prev]
+                updated[index] = {
+                  corretor: avaliacao.corretor,
+                  valor: Number(avaliacao.valor),
+                  timestamp: new Date(avaliacao.created_at),
+                  id: avaliacao.id
+                }
+                console.log('📝 Atualizando avaliação existente. Total:', updated.length)
+                return updated
+              }
+              // Adicionar nova avaliação
+              const novo = [...prev, {
                 corretor: avaliacao.corretor,
                 valor: Number(avaliacao.valor),
-                timestamp: new Date(avaliacao.created_at)
-              }
-              console.log('📝 Atualizando avaliação existente. Total:', updated.length)
-              return updated
-            }
-            // Adicionar nova avaliação
-            const novo = [...prev, {
-              corretor: avaliacao.corretor,
-              valor: Number(avaliacao.valor),
-              timestamp: new Date(avaliacao.created_at)
-            }]
-            console.log('➕ Adicionando nova avaliação. Total:', novo.length)
-            return novo
-          })
-        })
+                timestamp: new Date(avaliacao.created_at),
+                id: avaliacao.id
+              }]
+              console.log('➕ Adicionando nova avaliação. Total:', novo.length)
+              return novo
+            })
+          },
+          (avaliacaoId) => {
+            // Callback para exclusão
+            console.log('🗑️ Avaliação excluída em tempo real:', avaliacaoId)
+            setAvaliacoes(prev => prev.filter(av => av.id !== avaliacaoId))
+          }
+        )
       }
     }
 
@@ -279,6 +291,34 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
       }
     }
   }, [avaliacaoAtiva, imovelAtivo, socket, useSupabase])
+
+  const handleExcluirAvaliacao = async (avaliacaoId: string, corretor: string) => {
+    if (!imovelAtivo) return
+    
+    try {
+      await excluirAvaliacao(avaliacaoId)
+      
+      // Atualizar lista de avaliações removendo a excluída
+      setAvaliacoes(prev => prev.filter(av => av.id !== avaliacaoId))
+      
+      // Recarregar avaliações do banco para garantir sincronização
+      const estado = await obterEstadoAtual()
+      if (estado?.imovel_ativo_id) {
+        const avs = await obterAvaliacoes(estado.imovel_ativo_id)
+        setAvaliacoes(avs.map(av => ({
+          corretor: av.corretor,
+          valor: Number(av.valor),
+          timestamp: new Date(av.created_at),
+          id: av.id
+        })))
+      }
+      
+      alert(`Avaliação de ${corretor} excluída com sucesso!`)
+    } catch (error: any) {
+      console.error('Erro ao excluir avaliação:', error)
+      alert(`Erro ao excluir avaliação: ${error.message || 'Erro desconhecido'}`)
+    }
+  }
 
   const cadastrarImovel = async () => {
     if (!imovelNome.trim() || !imovelTipo) {
@@ -685,6 +725,8 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
                         avaliacoes={avaliacoes} 
                         mostrarValores={true} // CEO sempre vê valores
                         modoDatashow={modoDatashow}
+                        onExcluir={handleExcluirAvaliacao}
+                        podeExcluir={true}
                       />
                     </div>
                   )}

@@ -183,6 +183,16 @@ export async function obterAvaliacoes(imovelId: string) {
   return data as Avaliacao[]
 }
 
+export async function excluirAvaliacao(avaliacaoId: string) {
+  const { error } = await supabase
+    .from('avaliacoes')
+    .delete()
+    .eq('id', avaliacaoId)
+
+  if (error) throw error
+  return true
+}
+
 // ==================== ESTADO ATUAL ====================
 
 export async function obterEstadoAtual() {
@@ -413,7 +423,7 @@ export function subscribeEstadoAtual(callback: (estado: EstadoAtual) => void) {
     .subscribe()
 }
 
-export function subscribeAvaliacoes(imovelId: string, callback: (avaliacao: Avaliacao) => void) {
+export function subscribeAvaliacoes(imovelId: string, callback: (avaliacao: Avaliacao) => void, onDelete?: (avaliacaoId: string) => void) {
   console.log('📡 Criando subscription para avaliações do imóvel:', imovelId)
   
   // Usar nome fixo para evitar múltiplas subscriptions
@@ -424,7 +434,7 @@ export function subscribeAvaliacoes(imovelId: string, callback: (avaliacao: Aval
     .on(
       'postgres_changes',
       {
-        event: 'INSERT', // Apenas INSERT para novas avaliações
+        event: 'INSERT', // INSERT para novas avaliações
         schema: 'public',
         table: 'avaliacoes',
         filter: `imovel_id=eq.${imovelId}`
@@ -434,6 +444,38 @@ export function subscribeAvaliacoes(imovelId: string, callback: (avaliacao: Aval
         if (payload.new) {
           console.log('✅ Nova avaliação detectada:', payload.new)
           callback(payload.new as Avaliacao)
+        }
+      }
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE', // UPDATE para atualizações de avaliações
+        schema: 'public',
+        table: 'avaliacoes',
+        filter: `imovel_id=eq.${imovelId}`
+      },
+      (payload) => {
+        console.log('📨 Evento UPDATE recebido:', payload)
+        if (payload.new) {
+          console.log('✅ Avaliação atualizada:', payload.new)
+          callback(payload.new as Avaliacao)
+        }
+      }
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'DELETE', // DELETE para exclusões de avaliações
+        schema: 'public',
+        table: 'avaliacoes',
+        filter: `imovel_id=eq.${imovelId}`
+      },
+      (payload) => {
+        console.log('📨 Evento DELETE recebido:', payload)
+        if (payload.old && onDelete) {
+          console.log('🗑️ Avaliação excluída:', payload.old)
+          onDelete((payload.old as Avaliacao).id)
         }
       }
     )
