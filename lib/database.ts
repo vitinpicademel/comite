@@ -4,7 +4,9 @@ import { supabase, supabaseConfigured, type Imovel, type Avaliacao, type Sessao,
 
 export async function cadastrarImovel(nome: string, tipo: string) {
   if (!supabaseConfigured) {
-    throw new Error('Supabase não configurado. Configure as variáveis de ambiente NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY na Vercel.')
+    const errorMsg = 'Supabase não configurado. Configure as variáveis de ambiente NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY na Vercel. Veja: CONFIGURAR-VERCEL-AGORA.md'
+    console.error('❌', errorMsg)
+    throw new Error(errorMsg)
   }
 
   const { data, error } = await supabase
