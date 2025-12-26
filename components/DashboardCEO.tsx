@@ -431,9 +431,27 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
                     )}
                   </div>
                   {avaliacaoAtiva && (
-                    <div className="mt-4 flex items-center gap-2 text-cyan-400 text-sm">
-                      <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse" />
-                      <span>Avaliação em andamento - {avaliacoes.length} voto(s) recebido(s)</span>
+                    <div className="mt-4 space-y-4">
+                      <div className="flex items-center gap-2 text-cyan-400 text-sm">
+                        <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse" />
+                        <span>Avaliação em andamento - {avaliacoes.length} voto(s) recebido(s)</span>
+                      </div>
+                      {/* Botão Modo Datashow */}
+                      <div className="flex items-center justify-between">
+                        <button
+                          onClick={() => setModoDatashow(!modoDatashow)}
+                          className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors text-sm"
+                        >
+                          {modoDatashow ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                          {modoDatashow ? 'Mostrar Detalhes' : 'Ocultar Nomes'}
+                        </button>
+                      </div>
+                      {/* Status de Votação */}
+                      <StatusVotacao 
+                        avaliacoes={avaliacoes} 
+                        mostrarValores={mostrarResultados}
+                        modoDatashow={modoDatashow}
+                      />
                     </div>
                   )}
                 </motion.div>
