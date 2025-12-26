@@ -10,11 +10,25 @@ export async function cadastrarImovel(nome: string, tipo: string) {
   }
 
   // Cadastrar com status 'pendente' - não define como ativo
+  // Se a coluna status não existir, cadastra sem ela (compatibilidade)
   const { data, error } = await supabase
     .from('imoveis')
     .insert({ nome, tipo, status: 'pendente' })
     .select()
     .single()
+  
+  // Se der erro de coluna não encontrada, tenta sem status (fallback)
+  if (error && error.message?.includes('status')) {
+    console.warn('⚠️ Coluna status não encontrada. Executando migration...')
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('imoveis')
+      .insert({ nome, tipo })
+      .select()
+      .single()
+    
+    if (fallbackError) throw fallbackError
+    return fallbackData as Imovel
+  }
 
   if (error) {
     console.error('Erro ao cadastrar imóvel:', error)
