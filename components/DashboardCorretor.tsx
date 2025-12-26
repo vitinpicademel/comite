@@ -54,27 +54,35 @@ export default function DashboardCorretor({ socket, onBack }: { socket: Socket |
     } else {
       // Usar Supabase Realtime
       obterEstadoAtual().then(estado => {
+        // FILTRO: Só mostrar se avaliação estiver ativa E houver imóvel ativo
         if (estado?.imovel_ativo_id && estado.avaliacao_ativa) {
           obterImovelAtivo().then(imovel => {
-            if (imovel) setImovelAtivo({ nome: imovel.nome, tipo: imovel.tipo })
+            if (imovel && imovel.id === estado.imovel_ativo_id) {
+              setImovelAtivo({ nome: imovel.nome, tipo: imovel.tipo })
+            }
           })
         }
         setAvaliacaoAtiva(estado?.avaliacao_ativa || false)
       })
 
-      // Subscribe Realtime
+      // Subscribe Realtime com FILTRO de sessão ativa
       const channel = subscribeEstadoAtual(async (estado) => {
-        if (estado?.imovel_ativo_id && estado.avaliacao_ativa) {
+        // FILTRO: Só processar se avaliação estiver ativa
+        if (estado?.avaliacao_ativa && estado?.imovel_ativo_id) {
           const imovel = await obterImovelAtivo()
-          if (imovel) {
+          // VALIDAÇÃO: Verificar se o imóvel retornado é o mesmo do estado ativo
+          if (imovel && imovel.id === estado.imovel_ativo_id) {
             setImovelAtivo({ nome: imovel.nome, tipo: imovel.tipo })
             setAvaliacaoAtiva(true)
             setVotoEnviado(false)
             setValor('')
+            setMensagemStatus('')
           }
         } else {
+          // Avaliação não está ativa - limpar interface
           setAvaliacaoAtiva(false)
           setImovelAtivo(null)
+          setVotoEnviado(false)
           if (!estado?.avaliacao_ativa) {
             setMensagemStatus('Avaliação encerrada. Aguarde o próximo imóvel.')
           }

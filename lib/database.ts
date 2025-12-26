@@ -115,22 +115,61 @@ export async function definirImovelAtivo(imovelId: string | null) {
 }
 
 export async function iniciarAvaliacao() {
-  const { data: estado } = await supabase
+  // TRAVA DE SEGURANÇA: Verificar se já existe avaliação ativa
+  const { data: estadoAtual } = await supabase
     .from('estado_atual')
-    .select('imovel_ativo_id')
+    .select('*')
     .single()
 
-  if (!estado?.imovel_ativo_id) {
+  if (!estadoAtual?.imovel_ativo_id) {
     throw new Error('Nenhum imóvel cadastrado')
   }
 
-  // Limpar avaliações anteriores deste imóvel
-  await supabase
-    .from('avaliacoes')
-    .delete()
-    .eq('imovel_id', estado.imovel_ativo_id)
+  // Se já existe avaliação ativa, encerrar automaticamente antes de iniciar nova
+  if (estadoAtual.avaliacao_ativa && estadoAtual.imovel_ativo_id) {
+    console.log('⚠️ Avaliação ativa detectada. Encerrando automaticamente antes de iniciar nova...')
+    
+    // Finalizar avaliação anterior automaticamente
+    const avaliacoesAnteriores = await obterAvaliacoes(estadoAtual.imovel_ativo_id)
+    const mediaAnterior = avaliacoesAnteriores.length > 0
+      ? avaliacoesAnteriores.reduce((sum, av) => sum + Number(av.valor), 0) / avaliacoesAnteriores.length
+      : 0
 
-  // Ativar avaliação
+    // Salvar sessão anterior
+    const { data: imovelAnterior } = await supabase
+      .from('imoveis')
+      .select('*')
+      .eq('id', estadoAtual.imovel_ativo_id)
+      .single()
+
+    if (imovelAnterior) {
+      await supabase
+        .from('sessoes')
+        .insert({
+          imovel_id: estadoAtual.imovel_ativo_id,
+          nome_imovel: imovelAnterior.nome,
+          tipo_imovel: imovelAnterior.tipo,
+          media_final: mediaAnterior,
+          data_avaliacao: new Date().toISOString().split('T')[0]
+        })
+    }
+
+    // Limpar avaliações anteriores
+    await supabase
+      .from('avaliacoes')
+      .delete()
+      .eq('imovel_id', estadoAtual.imovel_ativo_id)
+  }
+
+  // Limpar avaliações do novo imóvel (se for diferente)
+  if (estadoAtual.imovel_ativo_id) {
+    await supabase
+      .from('avaliacoes')
+      .delete()
+      .eq('imovel_id', estadoAtual.imovel_ativo_id)
+  }
+
+  // Ativar avaliação para o imóvel atual
   const { data, error } = await supabase
     .from('estado_atual')
     .update({ 
@@ -148,14 +187,18 @@ export async function iniciarAvaliacao() {
 export async function finalizarAvaliacao() {
   const { data: estado } = await supabase
     .from('estado_atual')
-    .select('imovel_ativo_id')
+    .select('imovel_ativo_id, avaliacao_ativa')
     .single()
 
   if (!estado?.imovel_ativo_id) {
     throw new Error('Nenhum imóvel em avaliação')
   }
 
-  // Obter imóvel e avaliações
+  if (!estado.avaliacao_ativa) {
+    throw new Error('Nenhuma avaliação ativa no momento')
+  }
+
+  // Obter imóvel e avaliações - FILTRADO por imovel_id
   const { data: imovel, error: imovelError } = await supabase
     .from('imoveis')
     .select('*')
@@ -166,6 +209,7 @@ export async function finalizarAvaliacao() {
     throw new Error(`Imóvel não encontrado: ${imovelError?.message || 'Dados não disponíveis'}`)
   }
 
+  // FILTRO OBRIGATÓRIO: Obter apenas avaliações deste imóvel específico
   const avaliacoes = await obterAvaliacoes(estado.imovel_ativo_id)
 
   // Calcular média

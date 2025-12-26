@@ -223,10 +223,20 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
       if (estado?.imovel_ativo_id && estado.avaliacao_ativa) {
         console.log('🔄 Configurando subscription de avaliações para imóvel:', estado.imovel_ativo_id)
         
-        // Subscribe para novas avaliações em tempo real
+        // FILTRO: Subscribe apenas para avaliações deste imóvel específico
         channelAvaliacoes = subscribeAvaliacoes(estado.imovel_ativo_id, (avaliacao) => {
-          console.log('✅ Nova avaliação recebida em tempo real:', avaliacao)
+          // VALIDAÇÃO: Verificar se a avaliação recebida é realmente deste imóvel
+          if (avaliacao.imovel_id !== estado.imovel_ativo_id) {
+            console.warn('⚠️ Avaliação recebida de imóvel diferente! Ignorando...', {
+              recebido: avaliacao.imovel_id,
+              esperado: estado.imovel_ativo_id
+            })
+            return
+          }
+
+          console.log('✅ Nova avaliação recebida em tempo real para imóvel:', estado.imovel_ativo_id, avaliacao)
           setAvaliacoes(prev => {
+            // FILTRO: Garantir que só processamos avaliações deste imóvel
             const index = prev.findIndex(av => av.corretor === avaliacao.corretor)
             if (index >= 0) {
               // Atualizar avaliação existente
@@ -297,11 +307,13 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
       // Limpar avaliações anteriores e garantir que subscription será criado
       setAvaliacoes([])
       
-      // Aguardar um pouco e recarregar avaliações para garantir subscription
+      // Aguardar um pouco e recarregar avaliações FILTRADAS por imovel_id
       setTimeout(async () => {
         const estado = await obterEstadoAtual()
         if (estado?.imovel_ativo_id && estado.avaliacao_ativa) {
+          // FILTRO: Carregar apenas avaliações deste imóvel específico
           const avs = await obterAvaliacoes(estado.imovel_ativo_id)
+          console.log(`🔄 Recarregando ${avs.length} avaliações para imóvel ${estado.imovel_ativo_id}`)
           setAvaliacoes(avs.map(av => ({
             corretor: av.corretor,
             valor: Number(av.valor),
