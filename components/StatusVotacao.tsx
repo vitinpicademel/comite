@@ -33,31 +33,21 @@ export default function StatusVotacao({ avaliacoes, mostrarValores, modoDatashow
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.1 }}
-            className={`flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5 ${
-              modoDatashow ? 'blur-sm' : ''
-            }`}
+            className="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5"
           >
             <div className="flex items-center gap-3 flex-1 min-w-0">
-              <CheckCircle2 className="w-5 h-5 text-cyan-500 flex-shrink-0" />
-              <span className="text-white font-medium truncate">
+              <CheckCircle2 className={`w-5 h-5 text-cyan-500 flex-shrink-0 ${modoDatashow ? 'blur-sm' : ''}`} />
+              <span className={`text-white font-medium truncate ${modoDatashow ? 'blur-sm' : ''}`}>
                 {modoDatashow ? 'Corretor' : avaliacao.corretor}
               </span>
-              {!modoDatashow && (
-                <span className="text-cyan-400 font-bold number-display ml-auto">
-                  R$ {avaliacao.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              )}
+              <span className={`text-cyan-400 font-bold number-display ml-auto ${modoDatashow ? 'blur-sm' : ''}`}>
+                R$ {avaliacao.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
             </div>
-            {modoDatashow ? (
-              <div className="flex items-center gap-2 text-cyan-400 ml-2">
-                <CheckCircle2 className="w-4 h-4" />
-                <span className="text-sm">Votou</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 text-emerald-400 ml-2">
-                <span className="text-xs">✓</span>
-              </div>
-            )}
+            <div className="flex items-center gap-2 text-cyan-400 ml-2">
+              <CheckCircle2 className={`w-4 h-4 ${modoDatashow ? 'blur-sm' : ''}`} />
+              <span className={`text-sm ${modoDatashow ? 'blur-sm' : ''}`}>Votou</span>
+            </div>
           </motion.div>
         ))}
       </div>
