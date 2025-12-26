@@ -61,6 +61,7 @@ export interface Imovel {
   id: string
   nome: string
   tipo: 'Casa' | 'Apartamento' | 'Terreno' | 'Chácara' | 'Rancho' | 'Sítio' | 'Galpão'
+  status?: 'pendente' | 'votando' | 'finalizado'
   created_at: string
   updated_at: string
 }

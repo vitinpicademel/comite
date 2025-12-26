@@ -14,17 +14,14 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
-import { obterEstadoAtual, obterHistorico, cadastrarImovel as cadastrar, definirImovelAtivo, iniciarAvaliacao as iniciar, finalizarAvaliacao as finalizar, subscribeEstadoAtual, subscribeAvaliacoes, obterAvaliacoes } from '@/lib/database'
+import { supabase, type Imovel as ImovelType } from '@/lib/supabase'
+import { obterEstadoAtual, obterHistorico, cadastrarImovel as cadastrar, definirImovelAtivo, iniciarAvaliacao as iniciar, finalizarAvaliacao as finalizar, subscribeEstadoAtual, subscribeAvaliacoes, obterAvaliacoes, obterImoveisPendentes } from '@/lib/database'
 import AnimatedCounter from './AnimatedCounter'
 import ResultadosRevelacao from './ResultadosRevelacao'
 import HistoricoLista from './HistoricoLista'
 import StatusVotacao from './StatusVotacao'
+import FilaImoveis from './FilaImoveis'
 
-interface Imovel {
-  nome: string
-  tipo: string
-}
 
 interface Avaliacao {
   corretor: string
@@ -53,7 +50,7 @@ const TIPOS_IMOVEL = [
 export default function DashboardCEO({ socket, onBack }: { socket: Socket | null; onBack: () => void }) {
   const [imovelNome, setImovelNome] = useState('')
   const [imovelTipo, setImovelTipo] = useState('')
-  const [imovelAtivo, setImovelAtivo] = useState<Imovel | null>(null)
+  const [imovelAtivo, setImovelAtivo] = useState<ImovelType | null>(null)
   const [avaliacaoAtiva, setAvaliacaoAtiva] = useState(false)
   const [avaliacoes, setAvaliacoes] = useState<Avaliacao[]>([])
   const [contador, setContador] = useState(0)
@@ -63,27 +60,26 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
   const [imovelResultado, setImovelResultado] = useState<{ nome: string; tipo: string } | null>(null)
   const [modoDatashow, setModoDatashow] = useState(false) // false = mostrar nomes, true = ocultar
   const [useSupabase, setUseSupabase] = useState(false)
-  const [corretoresVotaram, setCorretoresVotaram] = useState<Set<string>>(new Set())
+  const [imoveisPendentes, setImoveisPendentes] = useState<ImovelType[]>([])
 
   useEffect(() => {
     if (socket) {
       // Usar Socket.IO se disponível
-      socket.on('imovelCadastrado', (imovel: Imovel) => {
-        setImovelAtivo(imovel)
+      socket.on('imovelCadastrado', (imovel: any) => {
+        setImovelAtivo(imovel as ImovelType)
         setAvaliacaoAtiva(false)
         setAvaliacoes([])
         setMostrarResultados(false)
       })
 
-      socket.on('avaliacaoIniciada', (imovel: Imovel) => {
+      socket.on('avaliacaoIniciada', (imovel: any) => {
         setAvaliacaoAtiva(true)
-        setImovelAtivo(imovel)
+        setImovelAtivo(imovel as ImovelType)
         setAvaliacoes([])
         setMostrarResultados(false)
       })
 
       socket.on('avaliacaoRecebida', (avaliacao: Avaliacao) => {
-        setCorretoresVotaram(prev => new Set([...prev, avaliacao.corretor]))
         setAvaliacoes(prev => {
           const index = prev.findIndex(av => av.corretor === avaliacao.corretor)
           if (index >= 0) {
@@ -95,7 +91,7 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
         })
       })
 
-      socket.on('avaliacaoFinalizada', (resultado: { imovel: Imovel; avaliacoes: Avaliacao[]; media: number }) => {
+      socket.on('avaliacaoFinalizada', (resultado: { imovel: any; avaliacoes: Avaliacao[]; media: number }) => {
         setAvaliacaoAtiva(false)
         setMediaFinal(resultado.media)
         setMostrarResultados(true)
@@ -134,11 +130,16 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
       obterEstadoAtual().then(estado => {
         if (estado?.imovel_ativo_id) {
           supabase.from('imoveis').select('*').eq('id', estado.imovel_ativo_id).single().then(({ data }) => {
-            if (data) setImovelAtivo({ nome: data.nome, tipo: data.tipo })
+            if (data) setImovelAtivo(data as ImovelType)
           })
         }
         setAvaliacaoAtiva(estado?.avaliacao_ativa || false)
         setContador(estado?.contador_dia || 0)
+      })
+      
+      // Carregar lista de imóveis pendentes
+      obterImoveisPendentes().then(pendentes => {
+        setImoveisPendentes(pendentes)
       })
       
       obterHistorico().then(async historico => {
@@ -175,7 +176,7 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
       const channelEstado = subscribeEstadoAtual((estado) => {
         if (estado?.imovel_ativo_id) {
           supabase.from('imoveis').select('*').eq('id', estado.imovel_ativo_id).single().then(({ data }) => {
-            if (data) setImovelAtivo({ nome: data.nome, tipo: data.tipo })
+            if (data) setImovelAtivo(data as ImovelType)
           })
         } else {
           // Só limpar se não estiver mostrando resultados (evita erro ao finalizar)
@@ -283,9 +284,11 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
       if (socket) {
         socket.emit('cadastrarImovel', { nome: imovelNome.trim(), tipo: imovelTipo })
       } else {
-        const imovel = await cadastrar(imovelNome.trim(), imovelTipo)
-        await definirImovelAtivo(imovel.id)
-        setImovelAtivo({ nome: imovel.nome, tipo: imovel.tipo })
+        // Cadastrar sem definir como ativo - vai para a fila de pendentes
+        await cadastrar(imovelNome.trim(), imovelTipo)
+        // Recarregar lista de pendentes
+        const pendentes = await obterImoveisPendentes()
+        setImoveisPendentes(pendentes)
       }
       
       setImovelNome('')
@@ -296,14 +299,30 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
     }
   }
 
-  const iniciarAvaliacao = async () => {
-    if (!imovelAtivo) return
-    
-    if (socket) {
-      socket.emit('iniciarAvaliacao')
-    } else {
+  const iniciarAvaliacaoDeImovel = async (imovelId: string) => {
+    try {
+      // Definir imóvel como ativo e iniciar avaliação
+      await definirImovelAtivo(imovelId)
+      
+      // Obter dados do imóvel
+      const { data: imovel } = await supabase
+        .from('imoveis')
+        .select('*')
+        .eq('id', imovelId)
+        .single()
+      
+      if (imovel) {
+        setImovelAtivo(imovel as ImovelType)
+      }
+      
+      // Iniciar avaliação
       await iniciar()
       setAvaliacaoAtiva(true)
+      
+      // Recarregar lista de pendentes (remove o que foi iniciado)
+      const pendentes = await obterImoveisPendentes()
+      setImoveisPendentes(pendentes)
+      
       // Limpar avaliações anteriores e garantir que subscription será criado
       setAvaliacoes([])
       
@@ -321,6 +340,23 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
           })))
         }
       }, 500)
+    } catch (error: any) {
+      console.error('Erro ao iniciar avaliação:', error)
+      alert(`Erro ao iniciar avaliação: ${error.message || 'Erro desconhecido'}`)
+    }
+  }
+
+  // Função antiga mantida para compatibilidade (não usada mais)
+  const iniciarAvaliacao = async () => {
+    if (!imovelAtivo) return
+    
+    if (socket) {
+      socket.emit('iniciarAvaliacao')
+    } else {
+      const estado = await obterEstadoAtual()
+      if (estado?.imovel_ativo_id) {
+        await iniciarAvaliacaoDeImovel(estado.imovel_ativo_id)
+      }
     }
   }
 
@@ -358,6 +394,10 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
         setHistorico(prev => [novoHistorico, ...prev])
         setContador(prev => prev + 1)
         setImovelAtivo(null) // Limpar apenas depois de usar
+        
+        // Recarregar lista de pendentes após finalizar
+        const pendentes = await obterImoveisPendentes()
+        setImoveisPendentes(pendentes)
       }
     } catch (error: any) {
       console.error('Erro ao finalizar avaliação:', error)
@@ -400,6 +440,12 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Coluna Esquerda - Cadastro e Controle */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Fila de Imóveis Pendentes */}
+            <FilaImoveis 
+              imoveis={imoveisPendentes}
+              onIniciar={iniciarAvaliacaoDeImovel}
+              imovelAtivoId={imovelAtivo?.id || null}
+            />
             {/* Form de Cadastro */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}

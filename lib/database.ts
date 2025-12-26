@@ -9,9 +9,10 @@ export async function cadastrarImovel(nome: string, tipo: string) {
     throw new Error(errorMsg)
   }
 
+  // Cadastrar com status 'pendente' - não define como ativo
   const { data, error } = await supabase
     .from('imoveis')
-    .insert({ nome, tipo })
+    .insert({ nome, tipo, status: 'pendente' })
     .select()
     .single()
 
@@ -19,6 +20,31 @@ export async function cadastrarImovel(nome: string, tipo: string) {
     console.error('Erro ao cadastrar imóvel:', error)
     throw error
   }
+  return data as Imovel
+}
+
+// Obter imóveis pendentes (fila de espera)
+export async function obterImoveisPendentes() {
+  const { data, error } = await supabase
+    .from('imoveis')
+    .select('*')
+    .eq('status', 'pendente')
+    .order('created_at', { ascending: true })
+
+  if (error) throw error
+  return data as Imovel[]
+}
+
+// Atualizar status do imóvel
+export async function atualizarStatusImovel(imovelId: string, status: 'pendente' | 'votando' | 'finalizado') {
+  const { data, error } = await supabase
+    .from('imoveis')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', imovelId)
+    .select()
+    .single()
+
+  if (error) throw error
   return data as Imovel
 }
 
@@ -124,6 +150,11 @@ export async function obterEstadoAtual() {
 }
 
 export async function definirImovelAtivo(imovelId: string | null) {
+  // Se definir imóvel ativo, atualizar status para 'votando'
+  if (imovelId) {
+    await atualizarStatusImovel(imovelId, 'votando')
+  }
+
   const { data, error } = await supabase
     .from('estado_atual')
     .update({ 
@@ -258,6 +289,9 @@ export async function finalizarAvaliacao() {
   if (sessaoError) {
     throw new Error(`Erro ao salvar sessão: ${sessaoError.message}`)
   }
+
+  // Atualizar status do imóvel para 'finalizado'
+  await atualizarStatusImovel(estado.imovel_ativo_id, 'finalizado')
 
   // Obter estado atual para incrementar contador
   const { data: estadoAtual } = await supabase
