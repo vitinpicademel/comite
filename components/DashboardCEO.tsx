@@ -183,8 +183,24 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
             return prev && !mostrarResultados ? null : prev
           })
         }
-        setAvaliacaoAtiva(estado?.avaliacao_ativa || false)
+        const novaAvaliacaoAtiva = estado?.avaliacao_ativa || false
+        setAvaliacaoAtiva(novaAvaliacaoAtiva)
         setContador(estado?.contador_dia || 0)
+        
+        // Se avaliação foi iniciada, carregar avaliações imediatamente
+        if (novaAvaliacaoAtiva && estado?.imovel_ativo_id) {
+          obterAvaliacoes(estado.imovel_ativo_id).then(avs => {
+            console.log('📊 Carregando avaliações existentes:', avs.length)
+            setAvaliacoes(avs.map(av => ({
+              corretor: av.corretor,
+              valor: Number(av.valor),
+              timestamp: new Date(av.created_at)
+            })))
+          })
+        } else if (!novaAvaliacaoAtiva) {
+          // Limpar avaliações quando avaliação encerra
+          setAvaliacoes([])
+        }
       })
 
       return () => {
@@ -197,6 +213,7 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
   useEffect(() => {
     if (socket) return // Skip se usar Socket.IO
     if (!useSupabase) return // Skip se não usar Supabase
+    if (!avaliacaoAtiva || !imovelAtivo) return // Só criar subscription se avaliação estiver ativa
 
     let channelAvaliacoes: any = null
 
@@ -206,14 +223,6 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
       if (estado?.imovel_ativo_id && estado.avaliacao_ativa) {
         console.log('🔄 Configurando subscription de avaliações para imóvel:', estado.imovel_ativo_id)
         
-        // Carregar avaliações existentes
-        const avs = await obterAvaliacoes(estado.imovel_ativo_id)
-        setAvaliacoes(avs.map(av => ({
-          corretor: av.corretor,
-          valor: Number(av.valor),
-          timestamp: new Date(av.created_at)
-        })))
-
         // Subscribe para novas avaliações em tempo real
         channelAvaliacoes = subscribeAvaliacoes(estado.imovel_ativo_id, (avaliacao) => {
           console.log('✅ Nova avaliação recebida em tempo real:', avaliacao)
@@ -227,19 +236,19 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
                 valor: Number(avaliacao.valor),
                 timestamp: new Date(avaliacao.created_at)
               }
+              console.log('📝 Atualizando avaliação existente. Total:', updated.length)
               return updated
             }
             // Adicionar nova avaliação
-            return [...prev, {
+            const novo = [...prev, {
               corretor: avaliacao.corretor,
               valor: Number(avaliacao.valor),
               timestamp: new Date(avaliacao.created_at)
             }]
+            console.log('➕ Adicionando nova avaliação. Total:', novo.length)
+            return novo
           })
         })
-      } else {
-        // Limpar avaliações se não há avaliação ativa
-        setAvaliacoes([])
       }
     }
 
@@ -285,6 +294,21 @@ export default function DashboardCEO({ socket, onBack }: { socket: Socket | null
     } else {
       await iniciar()
       setAvaliacaoAtiva(true)
+      // Limpar avaliações anteriores e garantir que subscription será criado
+      setAvaliacoes([])
+      
+      // Aguardar um pouco e recarregar avaliações para garantir subscription
+      setTimeout(async () => {
+        const estado = await obterEstadoAtual()
+        if (estado?.imovel_ativo_id && estado.avaliacao_ativa) {
+          const avs = await obterAvaliacoes(estado.imovel_ativo_id)
+          setAvaliacoes(avs.map(av => ({
+            corretor: av.corretor,
+            valor: Number(av.valor),
+            timestamp: new Date(av.created_at)
+          })))
+        }
+      }, 500)
     }
   }
 

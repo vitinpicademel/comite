@@ -267,25 +267,36 @@ export function subscribeEstadoAtual(callback: (estado: EstadoAtual) => void) {
 export function subscribeAvaliacoes(imovelId: string, callback: (avaliacao: Avaliacao) => void) {
   console.log('📡 Criando subscription para avaliações do imóvel:', imovelId)
   
+  // Usar nome fixo para evitar múltiplas subscriptions
+  const channelName = `avaliacoes_${imovelId}`
+  
   const channel = supabase
-    .channel(`avaliacoes_${imovelId}_${Date.now()}`) // Nome único para evitar conflitos
+    .channel(channelName)
     .on(
       'postgres_changes',
       {
-        event: '*', // INSERT, UPDATE, DELETE
+        event: 'INSERT', // Apenas INSERT para novas avaliações
         schema: 'public',
         table: 'avaliacoes',
         filter: `imovel_id=eq.${imovelId}`
       },
       (payload) => {
-        console.log('📨 Evento Realtime recebido:', payload.eventType, payload.new)
+        console.log('📨 Evento INSERT recebido:', payload)
         if (payload.new) {
+          console.log('✅ Nova avaliação detectada:', payload.new)
           callback(payload.new as Avaliacao)
         }
       }
     )
-    .subscribe((status) => {
-      console.log('📡 Status da subscription:', status)
+    .subscribe((status, err) => {
+      if (err) {
+        console.error('❌ Erro na subscription:', err)
+      } else {
+        console.log('📡 Status da subscription:', status)
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Subscription ativa e funcionando!')
+        }
+      }
     })
   
   return channel
