@@ -78,6 +78,12 @@ export default function Home() {
               </span>
             </div>
           </div>
+
+          <div className="pt-6 mt-6 border-t border-slate-700/50">
+            <p className="text-slate-500 text-sm text-center">
+              Sistema desenvolvido por <span className="text-emerald-400 font-semibold">Kaká</span>
+            </p>
+          </div>
         </div>
       </div>
     )
