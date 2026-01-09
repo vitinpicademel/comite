@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx'
-import { obterHistoricoDoDia, type Sessao } from './database'
+import { obterHistoricoDoDia } from './database'
+import type { Sessao } from './supabase'
 
 export interface RelatorioItem {
   data: string
