@@ -1,0 +1,78 @@
+'use client'
+
+import { motion } from 'framer-motion'
+import { CheckCircle2, Users, X } from 'lucide-react'
+
+interface StatusVotacaoProps {
+  avaliacoes: Array<{ corretor: string; valor: number; timestamp?: Date; id?: string }>
+  mostrarValores: boolean
+  modoDatashow: boolean
+  onExcluir?: (avaliacaoId: string, corretor: string) => void
+  podeExcluir?: boolean
+}
+
+export default function StatusVotacao({ avaliacoes, mostrarValores, modoDatashow, onExcluir, podeExcluir = false }: StatusVotacaoProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="glass rounded-2xl p-6 border border-white/10"
+    >
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold flex items-center gap-2 text-cyan-400">
+          <Users className="w-5 h-5" />
+          Status de Votação
+        </h3>
+        <span className="text-sm text-slate-400">
+          {avaliacoes.length} voto(s)
+        </span>
+      </div>
+      
+      <div className="space-y-2">
+        {avaliacoes.map((avaliacao, index) => (
+          <motion.div
+            key={`${avaliacao.corretor}-${index}-${avaliacao.id || ''}`}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.1 }}
+            className="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5 hover:border-red-500/30 transition-colors group"
+          >
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <CheckCircle2 className={`w-5 h-5 text-cyan-500 flex-shrink-0 ${modoDatashow ? 'blur-sm' : ''}`} />
+              <span className={`text-white font-medium truncate ${modoDatashow ? 'blur-sm' : ''}`}>
+                {modoDatashow ? 'Corretor' : avaliacao.corretor}
+              </span>
+              {mostrarValores && (
+                <span className={`text-cyan-400 font-bold number-display ml-auto ${modoDatashow ? 'blur-sm' : ''}`}>
+                  R$ {avaliacao.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 ml-2">
+              {mostrarValores && (
+                <div className="flex items-center gap-2 text-cyan-400">
+                  <CheckCircle2 className={`w-4 h-4 ${modoDatashow ? 'blur-sm' : ''}`} />
+                  <span className={`text-sm ${modoDatashow ? 'blur-sm' : ''}`}>Votou</span>
+                </div>
+              )}
+              {podeExcluir && avaliacao.id && onExcluir && (
+                <button
+                  onClick={() => {
+                    if (confirm(`Tem certeza que deseja excluir a avaliação de ${avaliacao.corretor}?`)) {
+                      onExcluir(avaliacao.id!, avaliacao.corretor)
+                    }
+                  }}
+                  className="p-1.5 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                  title="Excluir avaliação"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </motion.div>
+  )
+}
+
