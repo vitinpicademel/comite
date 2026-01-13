@@ -39,17 +39,19 @@ export default function DashboardCorretor({ socket, onBack }: { socket: Socket |
       socket.on('avaliacaoIniciada', (imovel: Imovel) => {
         setImovelAtivo(imovel)
         setAvaliacaoAtiva(true)
+        // Resetar apenas o estado de voto, mantendo o corretor ativo
         setVotoEnviado(false)
         setValor('')
-        setMensagemStatus('')
+        setMensagemStatus('Nova votação iniciada! Digite seu valor.')
       })
 
       socket.on('avaliacaoFinalizada', () => {
+        // Não resetar corretorAtivo - manter usuário logado
         setAvaliacaoAtiva(false)
         setImovelAtivo(null)
         setVotoEnviado(false)
         setValor('')
-        setMensagemStatus('Avaliação encerrada. Aguarde o próximo imóvel.')
+        setMensagemStatus('Avaliação encerrada. Aguardando próxima rodada...')
       })
 
       socket.on('estadoAtual', (estado: any) => {
@@ -85,21 +87,23 @@ export default function DashboardCorretor({ socket, onBack }: { socket: Socket |
           const imovel = await obterImovelAtivo()
           // VALIDAÇÃO: Verificar se o imóvel retornado é o mesmo do estado ativo
           if (imovel && imovel.id === estado.imovel_ativo_id) {
+            // Nova avaliação iniciada - resetar apenas estado de voto, manter corretor logado
             setImovelAtivo({ nome: imovel.nome, tipo: imovel.tipo })
             setImovelAtivoId(estado.imovel_ativo_id)
             setAvaliacaoAtiva(true)
             setVotoEnviado(false)
             setValor('')
-            setMensagemStatus('')
+            setMensagemStatus('Nova votação iniciada! Digite seu valor.')
           }
         } else {
-          // Avaliação não está ativa - limpar interface
+          // Avaliação não está ativa - limpar interface mas manter corretor logado
           setAvaliacaoAtiva(false)
           setImovelAtivo(null)
           setImovelAtivoId(null)
           setVotoEnviado(false)
+          setValor('')
           if (!estado?.avaliacao_ativa) {
-            setMensagemStatus('Avaliação encerrada. Aguarde o próximo imóvel.')
+            setMensagemStatus('Avaliação encerrada. Aguardando próxima rodada...')
           }
         }
       })
@@ -235,26 +239,35 @@ export default function DashboardCorretor({ socket, onBack }: { socket: Socket |
       return
     }
 
-    if (socket) {
-      socket.emit('enviarAvaliacao', {
-        corretor: nomeCorretor.trim(),
-        valor: valorNumerico
-      })
-    } else {
-      const estado = await obterEstadoAtual()
-      if (estado?.imovel_ativo_id) {
-        await enviar(estado.imovel_ativo_id, nomeCorretor.trim(), valorNumerico)
-        setImovelAtivoId(estado.imovel_ativo_id)
+    try {
+      if (socket) {
+        socket.emit('enviarAvaliacao', {
+          corretor: nomeCorretor.trim(),
+          valor: valorNumerico
+        })
+      } else {
+        const estado = await obterEstadoAtual()
+        if (estado?.imovel_ativo_id) {
+          await enviar(estado.imovel_ativo_id, nomeCorretor.trim(), valorNumerico)
+          setImovelAtivoId(estado.imovel_ativo_id)
+        }
       }
+
+      // Marcar voto como enviado e limpar input
+      setVotoEnviado(true)
+      setValor('')
+      
+      // Mostrar mensagem de sucesso e depois mudar para estado de espera
+      setMensagemStatus('Voto registrado com sucesso!')
+      
+      // Após 3 segundos, mudar para mensagem de aguardar próxima votação
+      setTimeout(() => {
+        setMensagemStatus('Aguardando próxima rodada de votação...')
+      }, 3000)
+    } catch (error: any) {
+      setMensagemStatus(`Erro ao enviar voto: ${error.message}`)
+      setVotoEnviado(false)
     }
-
-    setVotoEnviado(true)
-    setMensagemStatus('Voto registrado! Aguarde o resultado no telão.')
-    setValor('')
-
-    setTimeout(() => {
-      setMensagemStatus('')
-    }, 5000)
   }
 
   if (!corretorAtivo) {
@@ -365,7 +378,7 @@ export default function DashboardCorretor({ socket, onBack }: { socket: Socket |
                 </div>
 
                 <AnimatePresence>
-                  {votoEnviado && (
+                  {votoEnviado && avaliacaoAtiva && (
                     <motion.div
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -383,22 +396,28 @@ export default function DashboardCorretor({ socket, onBack }: { socket: Socket |
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     className={`p-4 rounded-xl ${
-                      mensagemStatus.includes('registrado') 
+                      mensagemStatus.includes('registrado') || mensagemStatus.includes('sucesso') || mensagemStatus.includes('iniciada')
                         ? 'bg-cyan-500/20 border border-cyan-500/50 text-cyan-400'
+                        : mensagemStatus.includes('Aguardando') || mensagemStatus.includes('encerrada')
+                        ? 'bg-yellow-500/20 border border-yellow-500/50 text-yellow-400'
                         : 'bg-red-500/20 border border-red-500/50 text-red-400'
                     }`}
                   >
-                    {mensagemStatus}
+                    <div className="flex items-center gap-2">
+                      {mensagemStatus.includes('Aguardando') && <Clock className="w-4 h-4 animate-pulse" />}
+                      {mensagemStatus.includes('iniciada') && <CheckCircle2 className="w-4 h-4" />}
+                      <span>{mensagemStatus}</span>
+                    </div>
                   </motion.div>
                 )}
 
                 <button
                   onClick={enviarAvaliacao}
-                  disabled={!valor || votoEnviado}
+                  disabled={!valor || votoEnviado || !avaliacaoAtiva}
                   className="w-full px-6 py-4 bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-cyan-500/50 hover:shadow-cyan-500/70 hover:scale-[1.02] flex items-center justify-center gap-2"
                 >
                   <Send className="w-5 h-5" />
-                  {votoEnviado ? 'Voto Enviado' : 'Enviar Avaliação'}
+                  {votoEnviado ? 'Voto Enviado - Aguardando Próxima Rodada' : 'Enviar Avaliação'}
                 </button>
               </div>
             </motion.div>
@@ -422,4 +441,3 @@ export default function DashboardCorretor({ socket, onBack }: { socket: Socket |
     </div>
   )
 }
-
